@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
@@ -14,14 +14,17 @@ import { randomBytes, createHash } from 'crypto';
 import { ConfigService } from '@nestjs/config';
 import ms from 'ms';
 import { Request, Response } from 'express';
-import { JwtPayloadType } from './types';
-import { ACCESS_TOKEN, REFRESH_TOKEN } from 'src/common/constants';
+import { CacheUserType, JwtPayloadType } from './types';
+import { ACCESS_TOKEN, REFRESH_TOKEN, USER } from 'src/common/constants';
+import { RedisService } from 'src/redis/redis.service';
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
   constructor(
-    private jwtService: JwtService,
-    private prismaService: PrismaService,
-    private configService: ConfigService,
+    private readonly jwtService: JwtService,
+    private readonly prismaService: PrismaService,
+    private readonly configService: ConfigService,
+    private readonly redisService: RedisService,
   ) {}
   generateToken(payload: JwtPayloadType): string {
     return this.jwtService.sign(payload);
@@ -104,6 +107,17 @@ export class AuthService {
         message: 'Invalid password',
       } satisfies ErrorResponseType);
     }
+
+    void this.redisService
+      .set(
+        `${USER}:${user.id}`,
+        JSON.stringify({
+          id: user.id,
+          email: user.email,
+          tokenVersion: user.tokenVersion,
+        } satisfies CacheUserType),
+      )
+      .catch((error) => this.logger.error('Redis set error', error));
 
     const accessToken = this.generateToken({
       sub: user.id,
@@ -208,6 +222,17 @@ export class AuthService {
         },
       });
 
+      void this.redisService
+        .set(
+          `${USER}:${token.user.id}`,
+          JSON.stringify({
+            id: token.user.id,
+            email: token.user.email,
+            tokenVersion: token.user.tokenVersion,
+          } satisfies CacheUserType),
+        )
+        .catch((error) => this.logger.error('Redis set error', error));
+
       res.cookie(ACCESS_TOKEN, accessToken, {
         httpOnly: true,
         secure: true,
@@ -249,13 +274,19 @@ export class AuthService {
     const userId = user.id;
     const refreshToken = req.cookies[REFRESH_TOKEN];
 
-    await this.prismaService.user.update({
-      where: { id: userId },
-      data: { tokenVersion: { increment: 1 } },
-    });
-    await this.prismaService.refreshToken.updateMany({
-      where: { tokenHash: this.getHashedRefreshToken(refreshToken) },
-      data: { revokedAt: new Date() },
+    await this.prismaService.$transaction(async (tx) => {
+      void this.redisService
+        .del(`${USER}:${userId}`)
+        .catch((error) => this.logger.error('Redis del error', error));
+
+      await tx.user.update({
+        where: { id: userId },
+        data: { tokenVersion: { increment: 1 } },
+      });
+      await tx.refreshToken.updateMany({
+        where: { tokenHash: this.getHashedRefreshToken(refreshToken) },
+        data: { revokedAt: new Date() },
+      });
     });
 
     res.clearCookie(ACCESS_TOKEN, {

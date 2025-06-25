@@ -4,6 +4,7 @@ import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { TaskService } from './task/task.service';
 import { PrismaModule } from './prisma/prisma.module';
+import { RedisModule } from './redis/redis.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -13,6 +14,7 @@ import { PrismaModule } from './prisma/prisma.module';
     ScheduleModule.forRoot(),
     AuthModule,
     PrismaModule,
+    RedisModule,
   ],
   providers: [TaskService],
 })
