@@ -12,14 +12,14 @@ import {
 import { SignUpDto, UserResponseDto } from './dto';
 import { AuthService } from './auth.service';
 import { Swagger } from 'src/libs/swagger';
-import { SuccessResponseType } from 'src/common/types';
+import { AuthenticatedRequest, SuccessResponseType } from 'src/common/types';
 import { SignInDto } from './dto/sign-in.dto';
 import { Response, Request } from 'express';
 import { TokenResponseDto } from './dto/token-response.dto';
 import { mergeClasses } from 'src/common/utils';
 import { REFRESH_TOKEN } from 'src/common/constants';
 import { ConfigService } from '@nestjs/config';
-import { JwtAuthGuard } from '../common/guards';
+import { JwtAuthGuard } from './guards';
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -67,7 +67,9 @@ export class AuthController {
     successCode: HttpStatus.OK,
     errorCodes: [HttpStatus.UNAUTHORIZED],
   })
-  async me(@Req() req: Request): Promise<SuccessResponseType<UserResponseDto>> {
+  async me(
+    @Req() req: AuthenticatedRequest,
+  ): Promise<SuccessResponseType<UserResponseDto>> {
     return this.authService.me(req);
   }
 
@@ -98,7 +100,7 @@ export class AuthController {
     errorCodes: [HttpStatus.UNAUTHORIZED],
   })
   async signOut(
-    @Req() req: Request,
+    @Req() req: AuthenticatedRequest,
     @Res({ passthrough: true }) res: Response,
   ): Promise<{ message: string; data: {} }> {
     return this.authService.signOut(req, res);

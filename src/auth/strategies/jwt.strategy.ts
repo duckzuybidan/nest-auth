@@ -8,7 +8,6 @@ import { Request } from 'express';
 import { ErrorResponseType } from 'src/common/types';
 import { ACCESS_TOKEN } from 'src/common/constants';
 import { UserResponseDto } from '../dto';
-
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(

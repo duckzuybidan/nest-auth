@@ -2,7 +2,11 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
-import { ErrorResponseType, SuccessResponseType } from 'src/common/types';
+import {
+  AuthenticatedRequest,
+  ErrorResponseType,
+  SuccessResponseType,
+} from 'src/common/types';
 import { SignUpDto, UserResponseDto } from './dto';
 import { SignInDto } from './dto/sign-in.dto';
 import { TokenResponseDto } from './dto/token-response.dto';
@@ -149,8 +153,10 @@ export class AuthService {
     return result;
   }
 
-  async me(req: Request): Promise<SuccessResponseType<UserResponseDto>> {
-    const user = req.user as UserResponseDto;
+  async me(
+    req: AuthenticatedRequest,
+  ): Promise<SuccessResponseType<UserResponseDto>> {
+    const user = req.user;
     const result: SuccessResponseType<UserResponseDto> = {
       message: 'Success',
       data: user,
@@ -236,10 +242,10 @@ export class AuthService {
   }
 
   async signOut(
-    req: Request,
+    req: AuthenticatedRequest,
     res: Response,
   ): Promise<{ message: string; data: {} }> {
-    const user = req.user as UserResponseDto;
+    const user = req.user;
     const userId = user.id;
     const refreshToken = req.cookies[REFRESH_TOKEN];
 
