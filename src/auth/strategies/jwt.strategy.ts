@@ -1,5 +1,5 @@
 import { PassportStrategy } from '@nestjs/passport';
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { Strategy } from 'passport-jwt';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CacheUserType, JwtPayloadType } from '../types';
@@ -11,6 +11,7 @@ import { UserResponseDto } from '../dto';
 import { RedisService } from 'src/redis/redis.service';
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
+  private readonly logger = new Logger(JwtStrategy.name);
   constructor(
     configService: ConfigService,
     private readonly prismaService: PrismaService,
@@ -35,15 +36,17 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     } else {
       user = await this.prismaService.user.findUnique({
         where: { id: payload.sub },
-        select: { id: true, email: true, tokenVersion: true },
+        select: { id: true, email: true },
       });
 
       if (user) {
-        await this.redisService.set(cacheKey, JSON.stringify(user));
+        void this.redisService
+          .set(cacheKey, JSON.stringify(user))
+          .catch((error) => this.logger.error('Redis set error', error));
       }
     }
 
-    if (!user || user.tokenVersion !== payload.tokenVersion) {
+    if (!user) {
       throw new UnauthorizedException({
         message: 'Unauthorized',
       } satisfies ErrorResponseType);

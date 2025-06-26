@@ -1,4 +1,3 @@
-export interface JwtPayloadType {
+export type JwtPayloadType = {
   sub: string;
-  tokenVersion: number;
-}
+};

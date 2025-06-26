@@ -5,6 +5,7 @@ import * as bcrypt from 'bcrypt';
 import {
   AuthenticatedRequest,
   ErrorResponseType,
+  GoogleRequest,
   SuccessResponseType,
 } from 'src/common/types';
 import { SignUpDto, UserResponseDto } from './dto';
@@ -14,7 +15,7 @@ import { randomBytes, createHash } from 'crypto';
 import { ConfigService } from '@nestjs/config';
 import ms from 'ms';
 import { Request, Response } from 'express';
-import { CacheUserType, JwtPayloadType } from './types';
+import { JwtPayloadType } from './types';
 import { ACCESS_TOKEN, REFRESH_TOKEN, USER } from 'src/common/constants';
 import { RedisService } from 'src/redis/redis.service';
 @Injectable()
@@ -56,6 +57,47 @@ export class AuthService {
   getHashedRefreshToken(rawRefreshToken: string): string {
     return createHash('sha256').update(rawRefreshToken).digest('hex');
   }
+
+  setAccessTokenCookie(res: Response, accessToken: string) {
+    res.cookie(ACCESS_TOKEN, accessToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'strict',
+      maxAge: ms(
+        (this.configService.get<string>('JWT_EXPIRES_IN') as ms.StringValue) ||
+          '15m',
+      ),
+    });
+  }
+
+  setRefreshTokenCookie(res: Response, refreshToken: string) {
+    res.cookie(REFRESH_TOKEN, refreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'strict',
+      maxAge: ms(
+        (this.configService.get<string>(
+          'REFRESH_TOKEN_EXPIRES_IN',
+        ) as ms.StringValue) || '7d',
+      ),
+    });
+  }
+
+  clearAccessTokenCookie(res: Response) {
+    res.clearCookie(ACCESS_TOKEN, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'strict',
+    });
+  }
+
+  clearRefreshTokenCookie(res: Response) {
+    res.clearCookie(REFRESH_TOKEN, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'strict',
+    });
+  }
   async signUp(
     payload: SignUpDto,
   ): Promise<SuccessResponseType<UserResponseDto>> {
@@ -73,7 +115,7 @@ export class AuthService {
     const hashed = await this.hashPassword(password);
 
     const user = await this.prismaService.user.create({
-      data: { email, passwordHash: hashed, tokenVersion: 1 },
+      data: { email, passwordHash: hashed },
     });
 
     const result: SuccessResponseType<UserResponseDto> = {
@@ -108,20 +150,8 @@ export class AuthService {
       } satisfies ErrorResponseType);
     }
 
-    void this.redisService
-      .set(
-        `${USER}:${user.id}`,
-        JSON.stringify({
-          id: user.id,
-          email: user.email,
-          tokenVersion: user.tokenVersion,
-        } satisfies CacheUserType),
-      )
-      .catch((error) => this.logger.error('Redis set error', error));
-
     const accessToken = this.generateToken({
       sub: user.id,
-      tokenVersion: user.tokenVersion,
     });
 
     const { rawRefreshToken, refreshTokenExpiry, hashedRefreshToken } =
@@ -136,25 +166,8 @@ export class AuthService {
       },
     });
 
-    res.cookie(ACCESS_TOKEN, accessToken, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'strict',
-      maxAge: ms(
-        (this.configService.get<string>('JWT_EXPIRES_IN') as ms.StringValue) ||
-          '15m',
-      ),
-    });
-    res.cookie(REFRESH_TOKEN, rawRefreshToken, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'strict',
-      maxAge: ms(
-        (this.configService.get<string>(
-          'REFRESH_TOKEN_EXPIRES_IN',
-        ) as ms.StringValue) || '7d',
-      ),
-    });
+    this.setAccessTokenCookie(res, accessToken);
+    this.setRefreshTokenCookie(res, rawRefreshToken);
 
     const result: SuccessResponseType<UserResponseDto & TokenResponseDto> = {
       message: 'Success',
@@ -193,6 +206,8 @@ export class AuthService {
       include: { user: true },
     });
     if (!token || !token.user) {
+      this.clearAccessTokenCookie(res);
+      this.clearRefreshTokenCookie(res);
       throw new BadRequestException({
         message: 'Invalid or expired refresh token',
       } satisfies ErrorResponseType);
@@ -202,11 +217,6 @@ export class AuthService {
       await tx.refreshToken.update({
         where: { id: token.id },
         data: { revokedAt: new Date() },
-      });
-
-      const accessToken = this.generateToken({
-        sub: token.user.id,
-        tokenVersion: token.user.tokenVersion,
       });
 
       const { rawRefreshToken, refreshTokenExpiry, hashedRefreshToken } =
@@ -222,37 +232,12 @@ export class AuthService {
         },
       });
 
-      void this.redisService
-        .set(
-          `${USER}:${token.user.id}`,
-          JSON.stringify({
-            id: token.user.id,
-            email: token.user.email,
-            tokenVersion: token.user.tokenVersion,
-          } satisfies CacheUserType),
-        )
-        .catch((error) => this.logger.error('Redis set error', error));
+      const accessToken = this.generateToken({
+        sub: token.user.id,
+      });
 
-      res.cookie(ACCESS_TOKEN, accessToken, {
-        httpOnly: true,
-        secure: true,
-        sameSite: 'strict',
-        maxAge: ms(
-          (this.configService.get<string>(
-            'JWT_EXPIRES_IN',
-          ) as ms.StringValue) || '15m',
-        ),
-      });
-      res.cookie(REFRESH_TOKEN, rawRefreshToken, {
-        httpOnly: true,
-        secure: true,
-        sameSite: 'strict',
-        maxAge: ms(
-          (this.configService.get<string>(
-            'REFRESH_TOKEN_EXPIRES_IN',
-          ) as ms.StringValue) || '7d',
-        ),
-      });
+      this.setAccessTokenCookie(res, accessToken);
+      this.setRefreshTokenCookie(res, rawRefreshToken);
 
       const response: SuccessResponseType<TokenResponseDto> = {
         message: 'Success',
@@ -274,32 +259,88 @@ export class AuthService {
     const userId = user.id;
     const refreshToken = req.cookies[REFRESH_TOKEN];
 
-    await this.prismaService.$transaction(async (tx) => {
-      void this.redisService
-        .del(`${USER}:${userId}`)
-        .catch((error) => this.logger.error('Redis del error', error));
-
-      await tx.user.update({
-        where: { id: userId },
-        data: { tokenVersion: { increment: 1 } },
-      });
-      await tx.refreshToken.updateMany({
-        where: { tokenHash: this.getHashedRefreshToken(refreshToken) },
-        data: { revokedAt: new Date() },
-      });
+    await this.prismaService.refreshToken.updateMany({
+      where: { tokenHash: this.getHashedRefreshToken(refreshToken) },
+      data: { revokedAt: new Date() },
     });
 
-    res.clearCookie(ACCESS_TOKEN, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'strict',
-    });
-    res.clearCookie(REFRESH_TOKEN, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'strict',
-    });
+    void this.redisService
+      .del(`${USER}:${userId}`)
+      .catch((error) => this.logger.error('Redis del error', error));
 
+    this.clearAccessTokenCookie(res);
+    this.clearRefreshTokenCookie(res);
     return { message: 'Success', data: {} };
+  }
+
+  async googleAuthRedirect(
+    req: GoogleRequest,
+    res: Response,
+  ): Promise<SuccessResponseType<UserResponseDto & TokenResponseDto>> {
+    const { email } = req.user;
+    const user = await this.prismaService.user.findUnique({
+      where: { email },
+    });
+    if (user) {
+      const accessToken = this.generateToken({ sub: user.id });
+      const { rawRefreshToken, refreshTokenExpiry, hashedRefreshToken } =
+        this.generateRefreshToken();
+      await this.prismaService.refreshToken.create({
+        data: {
+          tokenHash: hashedRefreshToken,
+          userId: user.id,
+          expiresAt: refreshTokenExpiry,
+          ipAddress: req.ip,
+          userAgent: req.headers['user-agent'],
+        },
+      });
+
+      this.setAccessTokenCookie(res, accessToken);
+      this.setRefreshTokenCookie(res, rawRefreshToken);
+      res.redirect(
+        this.configService.get<string>('CLIENT_REDIRECT_URL') as string,
+      );
+      const result: SuccessResponseType<UserResponseDto & TokenResponseDto> = {
+        message: 'Success',
+        data: {
+          id: user.id,
+          email: user.email,
+          accessToken: this.generateToken({ sub: user.id }),
+        },
+      };
+      return result;
+    }
+
+    const randomPassword = randomBytes(12).toString('hex');
+    const hashed = await this.hashPassword(randomPassword);
+    const newUser = await this.prismaService.user.create({
+      data: { email, passwordHash: hashed },
+    });
+    const accessToken = this.generateToken({ sub: newUser.id });
+    const { rawRefreshToken, refreshTokenExpiry, hashedRefreshToken } =
+      this.generateRefreshToken();
+    await this.prismaService.refreshToken.create({
+      data: {
+        tokenHash: hashedRefreshToken,
+        userId: newUser.id,
+        expiresAt: refreshTokenExpiry,
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      },
+    });
+    this.setAccessTokenCookie(res, accessToken);
+    this.setRefreshTokenCookie(res, rawRefreshToken);
+    res.redirect(
+      this.configService.get<string>('CLIENT_REDIRECT_URL') as string,
+    );
+    const result: SuccessResponseType<UserResponseDto & TokenResponseDto> = {
+      message: 'Success',
+      data: {
+        id: newUser.id,
+        email: newUser.email,
+        accessToken: this.generateToken({ sub: newUser.id }),
+      },
+    };
+    return result;
   }
 }

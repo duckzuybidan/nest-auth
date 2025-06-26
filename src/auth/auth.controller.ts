@@ -12,7 +12,11 @@ import {
 import { SignUpDto, UserResponseDto } from './dto';
 import { AuthService } from './auth.service';
 import { Swagger } from 'src/libs/swagger';
-import { AuthenticatedRequest, SuccessResponseType } from 'src/common/types';
+import {
+  AuthenticatedRequest,
+  GoogleRequest,
+  SuccessResponseType,
+} from 'src/common/types';
 import { SignInDto } from './dto/sign-in.dto';
 import { Response, Request } from 'express';
 import { TokenResponseDto } from './dto/token-response.dto';
@@ -20,6 +24,7 @@ import { mergeClasses } from 'src/common/utils';
 import { REFRESH_TOKEN } from 'src/common/constants';
 import { ConfigService } from '@nestjs/config';
 import { JwtAuthGuard } from './guards';
+import { GoogleAuthGuard } from './guards/google.guard';
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -104,5 +109,26 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<{ message: string; data: {} }> {
     return this.authService.signOut(req, res);
+  }
+
+  @Get('google-auth')
+  @UseGuards(GoogleAuthGuard)
+  @Swagger({
+    operation: 'Google login',
+    description: 'Google login',
+  })
+  async googleAuth() {}
+
+  @Get('google-auth/redirect')
+  @UseGuards(GoogleAuthGuard)
+  @Swagger({
+    operation: 'Google login redirect',
+    description: 'Google login redirect',
+  })
+  async googleAuthRedirect(
+    @Req() req: GoogleRequest,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<SuccessResponseType<UserResponseDto & TokenResponseDto>> {
+    return this.authService.googleAuthRedirect(req, res);
   }
 }
