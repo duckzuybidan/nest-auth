@@ -29,6 +29,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       if (typeof exceptionResponse === 'object') {
         const res = exceptionResponse as ErrorResponseType;
         errorResponse.message = res.message;
+        errorResponse.errorDetail = res.errorDetail;
       } else if (typeof exceptionResponse === 'string') {
         errorResponse.message = exceptionResponse;
       }

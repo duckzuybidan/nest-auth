@@ -3,6 +3,8 @@ import { AuthModule } from './auth/auth.module';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { TaskService } from './task/task.service';
+import { RoleModule } from './role/role.module';
+import { PermissionModule } from './permission/permission.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './redis/redis.module';
 @Module({
@@ -13,6 +15,8 @@ import { RedisModule } from './redis/redis.module';
     }),
     ScheduleModule.forRoot(),
     AuthModule,
+    RoleModule,
+    PermissionModule,
     PrismaModule,
     RedisModule,
   ],

@@ -9,10 +9,15 @@ import { SuccessResponseType } from 'src/common/types';
 
 export function SuccessResponse<T = any>(params: {
   status?: HttpStatus;
-  dto?: Type<T>;
+  dto?: Type<T> | Type<T>[]; // now allows array
   example?: SuccessResponseType<T>;
 }): MethodDecorator {
   const { status = HttpStatus.OK, dto, example } = params;
+
+  const isArray = Array.isArray(dto);
+  const targetDto = isArray
+    ? (dto as Type<T>[])[0]
+    : (dto as Type<T> | undefined);
 
   const schema = {
     type: 'object',
@@ -21,8 +26,17 @@ export function SuccessResponse<T = any>(params: {
         type: 'string',
         example: example?.message || 'Success',
       },
-      data: dto
-        ? { $ref: getSchemaPath(dto) }
+      data: targetDto
+        ? isArray
+          ? {
+              type: 'array',
+              items: { $ref: getSchemaPath(targetDto) },
+              example: example?.data,
+            }
+          : {
+              $ref: getSchemaPath(targetDto),
+              example: example?.data,
+            }
         : {
             type: 'object',
             example: example?.data || {},
@@ -38,8 +52,8 @@ export function SuccessResponse<T = any>(params: {
 
   const decorators: MethodDecorator[] = [responseDecorator];
 
-  if (dto) {
-    decorators.push(ApiExtraModels(dto));
+  if (targetDto) {
+    decorators.push(ApiExtraModels(targetDto));
   }
 
   return applyDecorators(...decorators);

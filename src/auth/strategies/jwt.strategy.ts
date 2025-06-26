@@ -26,33 +26,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: JwtPayloadType): Promise<UserResponseDto> {
-    let user: CacheUserType | null = null;
-    const cacheKey = `${USER}:${payload.sub}`;
-    const cachedUser = await this.redisService.get(cacheKey);
-
-    if (cachedUser) {
-      user = JSON.parse(cachedUser);
-    } else {
-      user = await this.prismaService.user.findUnique({
-        where: { id: payload.sub },
-        select: { id: true, email: true },
-      });
-
-      if (user) {
-        void this.redisService
-          .set(cacheKey, JSON.stringify(user))
-          .catch((error) => this.logger.error('Redis set error', error));
-      }
-    }
-
-    if (!user) {
-      throw new UnauthorizedException({
-        message: 'Unauthorized',
-      } satisfies ErrorResponseType);
-    }
-
-    const res: UserResponseDto = { id: user.id, email: user.email };
-    return res;
+  async validate(payload: JwtPayloadType): Promise<JwtPayloadType> {
+    return payload;
   }
 }

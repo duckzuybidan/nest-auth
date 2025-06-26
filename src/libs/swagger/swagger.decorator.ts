@@ -14,7 +14,7 @@ import { ACCESS_TOKEN } from 'src/common/constants';
 export function Swagger(options: SwaggerOptionsType): MethodDecorator {
   const {
     response,
-    operation,
+    summary,
     description,
     withAuth,
     successCode,
@@ -25,12 +25,8 @@ export function Swagger(options: SwaggerOptionsType): MethodDecorator {
 
   const decorators: MethodDecorator[] = [];
 
-  if (operation) {
-    decorators.push(ApiOperation({ summary: operation }));
-  }
-
-  if (description) {
-    decorators.push(ApiOperation({ description }));
+  if (summary || description) {
+    decorators.push(ApiOperation({ summary, description }));
   }
   if (withAuth) {
     decorators.push(ApiCookieAuth(ACCESS_TOKEN));

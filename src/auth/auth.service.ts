@@ -15,9 +15,10 @@ import { randomBytes, createHash } from 'crypto';
 import { ConfigService } from '@nestjs/config';
 import ms from 'ms';
 import { Request, Response } from 'express';
-import { JwtPayloadType } from './types';
+import { CacheUserType, JwtPayloadType } from './types';
 import { ACCESS_TOKEN, REFRESH_TOKEN, USER } from 'src/common/constants';
 import { RedisService } from 'src/redis/redis.service';
+import { PermissionService } from 'src/permission/permission.service';
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -26,8 +27,9 @@ export class AuthService {
     private readonly prismaService: PrismaService,
     private readonly configService: ConfigService,
     private readonly redisService: RedisService,
+    private readonly permissionService: PermissionService,
   ) {}
-  generateToken(payload: JwtPayloadType): string {
+  generateAccessToken(payload: JwtPayloadType): string {
     return this.jwtService.sign(payload);
   }
 
@@ -149,9 +151,12 @@ export class AuthService {
         message: 'Invalid password',
       } satisfies ErrorResponseType);
     }
-
-    const accessToken = this.generateToken({
+    const permissions = await this.permissionService
+      .getPermissionsByUserId(user.id)
+      .then((res) => res.data);
+    const accessToken = this.generateAccessToken({
       sub: user.id,
+      permissions,
     });
 
     const { rawRefreshToken, refreshTokenExpiry, hashedRefreshToken } =
@@ -183,7 +188,30 @@ export class AuthService {
   async me(
     req: AuthenticatedRequest,
   ): Promise<SuccessResponseType<UserResponseDto>> {
-    const user = req.user;
+    let user: CacheUserType | null = null;
+    const cacheKey = `${USER}:${req.user.sub}`;
+    const cachedUser = await this.redisService.get(cacheKey);
+
+    if (cachedUser) {
+      user = JSON.parse(cachedUser);
+    } else {
+      user = await this.prismaService.user.findUnique({
+        where: { id: req.user.sub },
+        select: { id: true, email: true },
+      });
+
+      if (user) {
+        void this.redisService
+          .set(cacheKey, JSON.stringify(user))
+          .catch((error) => this.logger.error('Redis set error', error));
+      }
+    }
+
+    if (!user) {
+      throw new BadRequestException({
+        message: 'User not found',
+      } satisfies ErrorResponseType);
+    }
     const result: SuccessResponseType<UserResponseDto> = {
       message: 'Success',
       data: user,
@@ -232,8 +260,12 @@ export class AuthService {
         },
       });
 
-      const accessToken = this.generateToken({
+      const permissions = await this.permissionService
+        .getPermissionsByUserId(token.user.id)
+        .then((res) => res.data);
+      const accessToken = this.generateAccessToken({
         sub: token.user.id,
+        permissions,
       });
 
       this.setAccessTokenCookie(res, accessToken);
@@ -256,7 +288,7 @@ export class AuthService {
     res: Response,
   ): Promise<{ message: string; data: {} }> {
     const user = req.user;
-    const userId = user.id;
+    const userId = user.sub;
     const refreshToken = req.cookies[REFRESH_TOKEN];
 
     await this.prismaService.refreshToken.updateMany({
@@ -282,7 +314,13 @@ export class AuthService {
       where: { email },
     });
     if (user) {
-      const accessToken = this.generateToken({ sub: user.id });
+      const permissions = await this.permissionService
+        .getPermissionsByUserId(user.id)
+        .then((res) => res.data);
+      const accessToken = this.generateAccessToken({
+        sub: user.id,
+        permissions,
+      });
       const { rawRefreshToken, refreshTokenExpiry, hashedRefreshToken } =
         this.generateRefreshToken();
       await this.prismaService.refreshToken.create({
@@ -305,7 +343,7 @@ export class AuthService {
         data: {
           id: user.id,
           email: user.email,
-          accessToken: this.generateToken({ sub: user.id }),
+          accessToken,
         },
       };
       return result;
@@ -316,7 +354,10 @@ export class AuthService {
     const newUser = await this.prismaService.user.create({
       data: { email, passwordHash: hashed },
     });
-    const accessToken = this.generateToken({ sub: newUser.id });
+    const accessToken = this.generateAccessToken({
+      sub: newUser.id,
+      permissions: [],
+    });
     const { rawRefreshToken, refreshTokenExpiry, hashedRefreshToken } =
       this.generateRefreshToken();
     await this.prismaService.refreshToken.create({
@@ -338,7 +379,7 @@ export class AuthService {
       data: {
         id: newUser.id,
         email: newUser.email,
-        accessToken: this.generateToken({ sub: newUser.id }),
+        accessToken,
       },
     };
     return result;

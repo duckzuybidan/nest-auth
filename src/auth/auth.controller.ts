@@ -33,7 +33,7 @@ export class AuthController {
   ) {}
   @Post('sign-up')
   @Swagger({
-    operation: 'Sign up',
+    summary: 'Sign up',
     description: 'Sign up with email and password',
     response: UserResponseDto,
     successCode: HttpStatus.CREATED,
@@ -48,7 +48,7 @@ export class AuthController {
   @Post('sign-in')
   @HttpCode(HttpStatus.OK)
   @Swagger({
-    operation: 'Sign in',
+    summary: 'Sign in',
     description: 'Sign in with email and password',
     response: mergeClasses(UserResponseDto, TokenResponseDto),
     successCode: HttpStatus.OK,
@@ -65,12 +65,12 @@ export class AuthController {
   @Get('me')
   @UseGuards(JwtAuthGuard)
   @Swagger({
-    operation: 'Get current user',
+    summary: 'Get current user',
     description: 'Get current user',
     withAuth: true,
     response: UserResponseDto,
     successCode: HttpStatus.OK,
-    errorCodes: [HttpStatus.UNAUTHORIZED],
+    errorCodes: [HttpStatus.UNAUTHORIZED, HttpStatus.BAD_REQUEST],
   })
   async me(
     @Req() req: AuthenticatedRequest,
@@ -80,7 +80,7 @@ export class AuthController {
 
   @Get('refresh-token')
   @Swagger({
-    operation: 'Refresh token',
+    summary: 'Refresh token',
     description: 'Refresh token',
     response: TokenResponseDto,
     successCode: HttpStatus.OK,
@@ -97,7 +97,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
   @Swagger({
-    operation: 'Sign out',
+    summary: 'Sign out',
     description: 'Sign out',
     withAuth: true,
     successExample: { message: 'Success', data: {} },
@@ -114,7 +114,7 @@ export class AuthController {
   @Get('google-auth')
   @UseGuards(GoogleAuthGuard)
   @Swagger({
-    operation: 'Google login',
+    summary: 'Google login',
     description: 'Google login',
   })
   async googleAuth() {}
@@ -122,7 +122,7 @@ export class AuthController {
   @Get('google-auth/redirect')
   @UseGuards(GoogleAuthGuard)
   @Swagger({
-    operation: 'Google login redirect',
+    summary: 'Google login redirect',
     description: 'Google login redirect',
   })
   async googleAuthRedirect(

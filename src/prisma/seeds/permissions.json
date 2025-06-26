@@ -1,0 +1,4 @@
+[
+  { "action": "read", "resource": "admin" },
+  { "action": "write", "resource": "admin" }
+]
