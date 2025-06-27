@@ -5,14 +5,12 @@ export class PermissionResponseDto {
   @ApiProperty({
     enum: PermissionAction,
     example: PermissionAction.READ,
-    enumName: 'PermissionAction',
   })
   action: PermissionAction;
 
   @ApiProperty({
     enum: PermissionResource,
     example: PermissionResource.ADMIN,
-    enumName: 'PermissionResource',
   })
   resource: PermissionResource;
 

@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { Response } from 'express';
 import { ErrorResponseType } from '../types';
+import { Prisma } from 'generated/prisma';
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
@@ -33,6 +34,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
       } else if (typeof exceptionResponse === 'string') {
         errorResponse.message = exceptionResponse;
       }
+    } else if (exception instanceof Prisma.PrismaClientUnknownRequestError) {
+      status = HttpStatus.BAD_REQUEST;
+      errorResponse.message = 'Database violation error';
     }
 
     response.status(status).json(errorResponse);

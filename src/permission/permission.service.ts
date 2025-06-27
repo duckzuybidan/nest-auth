@@ -1,9 +1,8 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { PermissionResponseDto } from './dto';
+import { PermissionResponseDto, UpdatePermissionBodyDto } from './dto';
 import { PermissionAction, PermissionResource } from 'src/common/constants';
 import { SuccessResponseType } from 'src/common/types';
-import { UpdatePermissionBodyDto } from './dto/update-permission-body.dto';
 @Injectable()
 export class PermissionService {
   constructor(private readonly prismaService: PrismaService) {}

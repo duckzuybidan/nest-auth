@@ -1,4 +1,4 @@
-import { forwardRef, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtModule } from '@nestjs/jwt';
@@ -18,7 +18,7 @@ import { JwtAuthGuard } from './guards';
         },
       }),
     }),
-    forwardRef(() => PermissionModule),
+    PermissionModule,
   ],
   providers: [AuthService, JwtStrategy, GoogleStrategy, JwtAuthGuard],
   controllers: [AuthController],

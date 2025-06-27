@@ -10,7 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { PermissionService } from './permission.service';
-import { PermissionResponseDto } from './dto';
+import { PermissionResponseDto, UpdatePermissionBodyDto } from './dto';
 import { JwtAuthGuard } from 'src/auth/guards';
 import { PermissionGuard } from './guards';
 import { Swagger } from 'src/libs/swagger';
@@ -18,7 +18,6 @@ import { Permission } from './decorators';
 import { PermissionAction, PermissionResource } from 'src/common/constants';
 import { ApiParam } from '@nestjs/swagger';
 import { SuccessResponseType } from 'src/common/types';
-import { UpdatePermissionBodyDto } from './dto/update-permission-body.dto';
 
 @UseGuards(JwtAuthGuard, PermissionGuard)
 @Permission({
@@ -70,7 +69,7 @@ export class PermissionController {
     return this.permissionService.getPermissionById(id);
   }
 
-  @Get(':userId')
+  @Get('user/:userId')
   @HttpCode(HttpStatus.OK)
   @Swagger({
     summary: 'Get permissions by user id',
@@ -91,7 +90,7 @@ export class PermissionController {
     return this.permissionService.getPermissionsByUserId(userId);
   }
 
-  @Get(':roleId')
+  @Get('role/:roleId')
   @HttpCode(HttpStatus.OK)
   @Swagger({
     summary: 'Get permissions by role id',

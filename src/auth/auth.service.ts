@@ -8,9 +8,7 @@ import {
   GoogleRequest,
   SuccessResponseType,
 } from 'src/common/types';
-import { SignUpDto, UserResponseDto } from './dto';
-import { SignInDto } from './dto/sign-in.dto';
-import { TokenResponseDto } from './dto/token-response.dto';
+import { SignUpDto, UserResponseDto, TokenResponseDto, SignInDto } from './dto';
 import { randomBytes, createHash } from 'crypto';
 import { ConfigService } from '@nestjs/config';
 import ms from 'ms';
@@ -109,9 +107,7 @@ export class AuthService {
       where: { email },
     });
     if (existingUser) {
-      throw new BadRequestException({
-        message: 'User already exists',
-      } satisfies ErrorResponseType);
+      throw new BadRequestException('User already exists');
     }
 
     const hashed = await this.hashPassword(password);
@@ -137,9 +133,7 @@ export class AuthService {
     const user = await this.prismaService.user.findUnique({ where: { email } });
 
     if (!user) {
-      throw new BadRequestException({
-        message: 'User not found',
-      } satisfies ErrorResponseType);
+      throw new BadRequestException('User not found');
     }
 
     const isPasswordValid = await this.checkPassword(
@@ -147,9 +141,7 @@ export class AuthService {
       user.passwordHash,
     );
     if (!isPasswordValid) {
-      throw new BadRequestException({
-        message: 'Invalid password',
-      } satisfies ErrorResponseType);
+      throw new BadRequestException('Invalid password');
     }
     const permissions = await this.permissionService
       .getPermissionsByUserId(user.id)
@@ -208,9 +200,7 @@ export class AuthService {
     }
 
     if (!user) {
-      throw new BadRequestException({
-        message: 'User not found',
-      } satisfies ErrorResponseType);
+      throw new BadRequestException('User not found');
     }
     const result: SuccessResponseType<UserResponseDto> = {
       message: 'Success',
@@ -236,9 +226,7 @@ export class AuthService {
     if (!token || !token.user) {
       this.clearAccessTokenCookie(res);
       this.clearRefreshTokenCookie(res);
-      throw new BadRequestException({
-        message: 'Invalid or expired refresh token',
-      } satisfies ErrorResponseType);
+      throw new BadRequestException('Invalid or expired refresh token');
     }
 
     const result = await this.prismaService.$transaction(async (tx) => {

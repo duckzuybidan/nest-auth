@@ -9,7 +9,7 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
-import { SignUpDto, UserResponseDto } from './dto';
+import { SignUpDto, UserResponseDto, SignInDto, TokenResponseDto } from './dto';
 import { AuthService } from './auth.service';
 import { Swagger } from 'src/libs/swagger';
 import {
@@ -17,9 +17,7 @@ import {
   GoogleRequest,
   SuccessResponseType,
 } from 'src/common/types';
-import { SignInDto } from './dto/sign-in.dto';
 import { Response, Request } from 'express';
-import { TokenResponseDto } from './dto/token-response.dto';
 import { mergeClasses } from 'src/common/utils';
 import { REFRESH_TOKEN } from 'src/common/constants';
 import { ConfigService } from '@nestjs/config';
