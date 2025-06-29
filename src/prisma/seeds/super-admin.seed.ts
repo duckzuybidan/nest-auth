@@ -16,6 +16,7 @@ async function main() {
       email,
       passwordHash,
       isActive: true,
+      isVerified: true,
     },
   });
 

@@ -113,7 +113,7 @@ export class AuthService {
     const hashed = await this.hashPassword(password);
 
     const user = await this.prismaService.user.create({
-      data: { email, passwordHash: hashed },
+      data: { email, passwordHash: hashed, isVerified: false, isActive: true },
     });
 
     const result: SuccessResponseType<AuthResponseDto> = {
@@ -135,6 +135,7 @@ export class AuthService {
     if (!user) {
       throw new BadRequestException('User not found');
     }
+    if (!user.isVerified) throw new BadRequestException('User is not verified');
     if (!user.isActive) throw new BadRequestException('User is not active');
     const isPasswordValid = await this.checkPassword(
       password,
@@ -338,7 +339,7 @@ export class AuthService {
     const randomPassword = randomBytes(12).toString('hex');
     const hashed = await this.hashPassword(randomPassword);
     const newUser = await this.prismaService.user.create({
-      data: { email, passwordHash: hashed, isActive: true },
+      data: { email, passwordHash: hashed, isActive: true, isVerified: true },
     });
     const accessToken = this.generateAccessToken({
       sub: newUser.id,

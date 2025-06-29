@@ -11,10 +11,14 @@ import { Prisma, User } from 'generated/prisma';
 import { CreateUserBodyDto } from './dto/create-user-body.dto';
 import { UpdateUserBodyDto } from './dto/update-user-body.dto';
 import { checkArrayContain } from 'src/common/utils';
+import { AuthService } from 'src/auth/auth.service';
 
 @Injectable()
 export class UserService {
-  constructor(private readonly prismaService: PrismaService) {}
+  constructor(
+    private readonly prismaService: PrismaService,
+    private readonly authService: AuthService,
+  ) {}
   mapSortOptionsToOrderBy(
     sortArray?: SortOptions[],
   ): Prisma.UserOrderByWithRelationInput[] | undefined {
@@ -134,13 +138,15 @@ export class UserService {
           ({ id: r.id, name: r.name }) satisfies UserResponseDto['roles'][0],
       );
     }
+    const hashed = await this.authService.hashPassword(payload.password);
     const result = await this.prismaService.$transaction(async (tx) => {
       const user = await tx.user
         .create({
           data: {
             email: payload.email,
-            passwordHash: payload.password,
+            passwordHash: hashed,
             isActive: payload.isActive,
+            isVerified: true,
           },
         })
         .catch((error) => {

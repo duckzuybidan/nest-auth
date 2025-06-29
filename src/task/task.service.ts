@@ -25,4 +25,18 @@ export class TaskService {
       this.logger.error('❌ Failed to clean up refresh tokens', error);
     }
   }
+
+  @Cron(CronExpression.EVERY_12_HOURS)
+  async cleanUnverifiedUsers() {
+    try {
+      const now = new Date();
+      const result = await this.prismaService.user.deleteMany({
+        where: { isVerified: false, createdAt: { lt: now } },
+      });
+
+      this.logger.log(`🧹 Deleted ${result.count} unverified users`);
+    } catch (error) {
+      this.logger.error('❌ Failed to clean up unverified users', error);
+    }
+  }
 }
