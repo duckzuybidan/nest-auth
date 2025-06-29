@@ -9,9 +9,9 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
-import { SignUpDto, UserResponseDto, SignInDto, TokenResponseDto } from './dto';
+import { SignUpDto, AuthResponseDto, SignInDto, TokenResponseDto } from './dto';
 import { AuthService } from './auth.service';
-import { Swagger } from 'src/libs/swagger';
+import { Swagger, swaggerConfig } from 'src/libs/swagger';
 import {
   AuthenticatedRequest,
   GoogleRequest,
@@ -20,26 +20,24 @@ import {
 import { Response, Request } from 'express';
 import { mergeClasses } from 'src/common/utils';
 import { REFRESH_TOKEN } from 'src/common/constants';
-import { ConfigService } from '@nestjs/config';
 import { JwtAuthGuard } from './guards';
 import { GoogleAuthGuard } from './guards/google.guard';
 @Controller('auth')
 export class AuthController {
-  constructor(
-    private readonly authService: AuthService,
-    private readonly configService: ConfigService,
-  ) {}
+  constructor(private readonly authService: AuthService) {
+    swaggerConfig.addTag('Auth');
+  }
   @Post('sign-up')
   @Swagger({
     summary: 'Sign up',
     description: 'Sign up with email and password',
-    response: UserResponseDto,
+    response: AuthResponseDto,
     successCode: HttpStatus.CREATED,
     errorCodes: [HttpStatus.BAD_REQUEST],
   })
   async signUp(
     @Body() payload: SignUpDto,
-  ): Promise<SuccessResponseType<UserResponseDto>> {
+  ): Promise<SuccessResponseType<AuthResponseDto>> {
     return this.authService.signUp(payload);
   }
 
@@ -48,7 +46,7 @@ export class AuthController {
   @Swagger({
     summary: 'Sign in',
     description: 'Sign in with email and password',
-    response: mergeClasses(UserResponseDto, TokenResponseDto),
+    response: mergeClasses(AuthResponseDto, TokenResponseDto),
     successCode: HttpStatus.OK,
     errorCodes: [HttpStatus.BAD_REQUEST],
   })
@@ -56,7 +54,7 @@ export class AuthController {
     @Body() payload: SignInDto,
     @Res({ passthrough: true }) res: Response,
     @Req() req: Request,
-  ): Promise<SuccessResponseType<UserResponseDto & TokenResponseDto>> {
+  ): Promise<SuccessResponseType<AuthResponseDto & TokenResponseDto>> {
     return this.authService.signIn(payload, req, res);
   }
 
@@ -66,13 +64,13 @@ export class AuthController {
     summary: 'Get current user',
     description: 'Get current user',
     withAuth: true,
-    response: UserResponseDto,
+    response: AuthResponseDto,
     successCode: HttpStatus.OK,
     errorCodes: [HttpStatus.UNAUTHORIZED, HttpStatus.BAD_REQUEST],
   })
   async me(
     @Req() req: AuthenticatedRequest,
-  ): Promise<SuccessResponseType<UserResponseDto>> {
+  ): Promise<SuccessResponseType<AuthResponseDto>> {
     return this.authService.me(req);
   }
 
@@ -126,7 +124,7 @@ export class AuthController {
   async googleAuthRedirect(
     @Req() req: GoogleRequest,
     @Res({ passthrough: true }) res: Response,
-  ): Promise<SuccessResponseType<UserResponseDto & TokenResponseDto>> {
+  ): Promise<SuccessResponseType<AuthResponseDto & TokenResponseDto>> {
     return this.authService.googleAuthRedirect(req, res);
   }
 }

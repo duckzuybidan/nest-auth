@@ -5,8 +5,3 @@ export enum PermissionAction {
 export enum PermissionResource {
   ADMIN = 'admin',
 }
-
-export const PERMISSIONS = [
-  { action: PermissionAction.READ, resource: PermissionResource.ADMIN },
-  { action: PermissionAction.WRITE, resource: PermissionResource.ADMIN },
-] as const;

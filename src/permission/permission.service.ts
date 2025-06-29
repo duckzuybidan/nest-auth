@@ -15,6 +15,7 @@ export class PermissionService {
       message: 'Success',
       data: permissions.map((p) => {
         return {
+          id: p.id,
           action: p.action as PermissionAction,
           resource: p.resource as PermissionResource,
           description: p.description,
@@ -35,6 +36,7 @@ export class PermissionService {
     const result: SuccessResponseType<PermissionResponseDto> = {
       message: 'Success',
       data: {
+        id: permission.id,
         action: permission.action as PermissionAction,
         resource: permission.resource as PermissionResource,
         description: permission.description,
@@ -69,6 +71,7 @@ export class PermissionService {
       userRole.role.permissions.map(
         (rp) =>
           ({
+            id: rp.id,
             action: rp.permission.action as PermissionAction,
             resource: rp.permission.resource as PermissionResource,
             description: rp.permission.description,
@@ -96,6 +99,7 @@ export class PermissionService {
       data: permissions.map(
         (rp) =>
           ({
+            id: rp.id,
             action: rp.permission.action as PermissionAction,
             resource: rp.permission.resource as PermissionResource,
             description: rp.permission.description,
@@ -118,6 +122,7 @@ export class PermissionService {
     const result: SuccessResponseType<PermissionResponseDto> = {
       message: 'Success',
       data: {
+        id: permission.id,
         action: permission.action as PermissionAction,
         resource: permission.resource as PermissionResource,
         description: permission.description,

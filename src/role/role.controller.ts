@@ -8,6 +8,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { RoleService } from './role.service';
@@ -17,7 +18,8 @@ import { PermissionAction, PermissionResource } from 'src/common/constants';
 import { Permission } from 'src/permission/decorators';
 import { RoleResponseDto, CreateRoleBodyDto, UpdateRoleBodyDto } from './dto';
 import { SuccessResponseType } from 'src/common/types';
-import { Swagger } from 'src/libs/swagger';
+import { Swagger, swaggerConfig } from 'src/libs/swagger';
+import { RolePaginationRequestDto } from './dto/role-pagination.dto';
 @UseGuards(JwtAuthGuard, PermissionGuard)
 @Permission({
   action: PermissionAction.READ,
@@ -25,7 +27,12 @@ import { Swagger } from 'src/libs/swagger';
 })
 @Controller('role')
 export class RoleController {
-  constructor(private readonly roleService: RoleService) {}
+  constructor(private readonly roleService: RoleService) {
+    swaggerConfig.addTag(
+      'Role',
+      `Permission required: ${PermissionAction.READ} ${PermissionResource.ADMIN} and ${PermissionAction.WRITE} ${PermissionResource.ADMIN}`,
+    );
+  }
   @Get()
   @HttpCode(HttpStatus.OK)
   @Swagger({
@@ -40,8 +47,10 @@ export class RoleController {
     ],
     withAuth: true,
   })
-  async getAllRoles(): Promise<SuccessResponseType<RoleResponseDto[]>> {
-    return this.roleService.getAllRoles();
+  async getAllRoles(
+    @Query() query: RolePaginationRequestDto,
+  ): Promise<SuccessResponseType<RoleResponseDto[]>> {
+    return this.roleService.getAllRoles(query);
   }
 
   @Get(':id')
@@ -65,6 +74,10 @@ export class RoleController {
   }
 
   @Post()
+  @Permission({
+    action: PermissionAction.WRITE,
+    resource: PermissionResource.ADMIN,
+  })
   @HttpCode(HttpStatus.CREATED)
   @Permission({
     action: PermissionAction.WRITE,
@@ -89,6 +102,10 @@ export class RoleController {
   }
 
   @Patch(':id')
+  @Permission({
+    action: PermissionAction.WRITE,
+    resource: PermissionResource.ADMIN,
+  })
   @HttpCode(HttpStatus.OK)
   @Permission({
     action: PermissionAction.WRITE,
@@ -114,6 +131,10 @@ export class RoleController {
   }
 
   @Delete(':id')
+  @Permission({
+    action: PermissionAction.WRITE,
+    resource: PermissionResource.ADMIN,
+  })
   @HttpCode(HttpStatus.OK)
   @Permission({
     action: PermissionAction.WRITE,
@@ -137,8 +158,8 @@ export class RoleController {
   @Get('user/:userId')
   @HttpCode(HttpStatus.OK)
   @Swagger({
-    summary: 'Get role by user id',
-    description: 'Get role by user id',
+    summary: 'Get roles by user id',
+    description: 'Get roles by user id',
     response: [RoleResponseDto],
     successCode: HttpStatus.OK,
     errorCodes: [
@@ -148,9 +169,9 @@ export class RoleController {
     ],
     withAuth: true,
   })
-  async getRoleByUserId(
+  async getRolesByUsersId(
     @Param('userId') userId: string,
   ): Promise<SuccessResponseType<RoleResponseDto[]>> {
-    return this.roleService.getRoleByUserId(userId);
+    return this.roleService.getRolesByUserId(userId);
   }
 }

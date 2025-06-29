@@ -13,7 +13,7 @@ import { PermissionService } from './permission.service';
 import { PermissionResponseDto, UpdatePermissionBodyDto } from './dto';
 import { JwtAuthGuard } from 'src/auth/guards';
 import { PermissionGuard } from './guards';
-import { Swagger } from 'src/libs/swagger';
+import { Swagger, swaggerConfig } from 'src/libs/swagger';
 import { Permission } from './decorators';
 import { PermissionAction, PermissionResource } from 'src/common/constants';
 import { ApiParam } from '@nestjs/swagger';
@@ -26,7 +26,12 @@ import { SuccessResponseType } from 'src/common/types';
 })
 @Controller('permission')
 export class PermissionController {
-  constructor(private readonly permissionService: PermissionService) {}
+  constructor(private readonly permissionService: PermissionService) {
+    swaggerConfig.addTag(
+      'Permission',
+      `Permission required: ${PermissionAction.READ} ${PermissionResource.ADMIN} and ${PermissionAction.WRITE} ${PermissionResource.ADMIN}`,
+    );
+  }
 
   @Get()
   @HttpCode(HttpStatus.OK)
@@ -112,6 +117,10 @@ export class PermissionController {
   }
 
   @Patch(':id')
+  @Permission({
+    action: PermissionAction.WRITE,
+    resource: PermissionResource.ADMIN,
+  })
   @HttpCode(HttpStatus.OK)
   @Permission({
     action: PermissionAction.WRITE,

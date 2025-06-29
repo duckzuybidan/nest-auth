@@ -8,7 +8,7 @@ import {
   GoogleRequest,
   SuccessResponseType,
 } from 'src/common/types';
-import { SignUpDto, UserResponseDto, TokenResponseDto, SignInDto } from './dto';
+import { SignUpDto, AuthResponseDto, TokenResponseDto, SignInDto } from './dto';
 import { randomBytes, createHash } from 'crypto';
 import { ConfigService } from '@nestjs/config';
 import ms from 'ms';
@@ -100,7 +100,7 @@ export class AuthService {
   }
   async signUp(
     payload: SignUpDto,
-  ): Promise<SuccessResponseType<UserResponseDto>> {
+  ): Promise<SuccessResponseType<AuthResponseDto>> {
     const { email, password } = payload;
 
     const existingUser = await this.prismaService.user.findUnique({
@@ -116,7 +116,7 @@ export class AuthService {
       data: { email, passwordHash: hashed },
     });
 
-    const result: SuccessResponseType<UserResponseDto> = {
+    const result: SuccessResponseType<AuthResponseDto> = {
       message: 'Success',
       data: { id: user.id, email: user.email },
     };
@@ -127,7 +127,7 @@ export class AuthService {
     payload: SignInDto,
     req: Request,
     res: Response,
-  ): Promise<SuccessResponseType<UserResponseDto & TokenResponseDto>> {
+  ): Promise<SuccessResponseType<AuthResponseDto & TokenResponseDto>> {
     const { email, password } = payload;
 
     const user = await this.prismaService.user.findUnique({ where: { email } });
@@ -135,7 +135,7 @@ export class AuthService {
     if (!user) {
       throw new BadRequestException('User not found');
     }
-
+    if (!user.isActive) throw new BadRequestException('User is not active');
     const isPasswordValid = await this.checkPassword(
       password,
       user.passwordHash,
@@ -166,7 +166,7 @@ export class AuthService {
     this.setAccessTokenCookie(res, accessToken);
     this.setRefreshTokenCookie(res, rawRefreshToken);
 
-    const result: SuccessResponseType<UserResponseDto & TokenResponseDto> = {
+    const result: SuccessResponseType<AuthResponseDto & TokenResponseDto> = {
       message: 'Success',
       data: {
         id: user.id,
@@ -179,7 +179,7 @@ export class AuthService {
 
   async me(
     req: AuthenticatedRequest,
-  ): Promise<SuccessResponseType<UserResponseDto>> {
+  ): Promise<SuccessResponseType<AuthResponseDto>> {
     let user: CacheUserType | null = null;
     const cacheKey = `${USER}:${req.user.sub}`;
     const cachedUser = await this.redisService.get(cacheKey);
@@ -202,7 +202,7 @@ export class AuthService {
     if (!user) {
       throw new BadRequestException('User not found');
     }
-    const result: SuccessResponseType<UserResponseDto> = {
+    const result: SuccessResponseType<AuthResponseDto> = {
       message: 'Success',
       data: user,
     };
@@ -214,6 +214,8 @@ export class AuthService {
     req: Request,
     res: Response,
   ): Promise<SuccessResponseType<TokenResponseDto>> {
+    if (!refreshToken)
+      throw new BadRequestException('Refresh token is required');
     const hashed = this.getHashedRefreshToken(refreshToken);
     const token = await this.prismaService.refreshToken.findFirst({
       where: {
@@ -223,22 +225,27 @@ export class AuthService {
       },
       include: { user: true },
     });
-    if (!token || !token.user) {
+    if (!token || !token.user || !token.user.isActive) {
       this.clearAccessTokenCookie(res);
       this.clearRefreshTokenCookie(res);
       throw new BadRequestException('Invalid or expired refresh token');
     }
+    const permissions = await this.permissionService
+      .getPermissionsByUserId(token.user.id)
+      .then((res) => res.data);
+    const accessToken = this.generateAccessToken({
+      sub: token.user.id,
+      permissions,
+    });
 
-    const result = await this.prismaService.$transaction(async (tx) => {
-      await tx.refreshToken.update({
+    const { rawRefreshToken, refreshTokenExpiry, hashedRefreshToken } =
+      this.generateRefreshToken();
+    await this.prismaService.$transaction([
+      this.prismaService.refreshToken.update({
         where: { id: token.id },
         data: { revokedAt: new Date() },
-      });
-
-      const { rawRefreshToken, refreshTokenExpiry, hashedRefreshToken } =
-        this.generateRefreshToken();
-
-      await tx.refreshToken.create({
+      }),
+      this.prismaService.refreshToken.create({
         data: {
           tokenHash: hashedRefreshToken,
           userId: token.user.id,
@@ -246,28 +253,18 @@ export class AuthService {
           ipAddress: req.ip,
           userAgent: req.headers['user-agent'],
         },
-      });
+      }),
+    ]);
 
-      const permissions = await this.permissionService
-        .getPermissionsByUserId(token.user.id)
-        .then((res) => res.data);
-      const accessToken = this.generateAccessToken({
-        sub: token.user.id,
-        permissions,
-      });
+    const result: SuccessResponseType<TokenResponseDto> = {
+      message: 'Success',
+      data: {
+        accessToken,
+      },
+    };
 
-      this.setAccessTokenCookie(res, accessToken);
-      this.setRefreshTokenCookie(res, rawRefreshToken);
-
-      const response: SuccessResponseType<TokenResponseDto> = {
-        message: 'Success',
-        data: {
-          accessToken,
-        },
-      };
-
-      return response;
-    });
+    this.setAccessTokenCookie(res, accessToken);
+    this.setRefreshTokenCookie(res, rawRefreshToken);
     return result;
   }
 
@@ -296,12 +293,13 @@ export class AuthService {
   async googleAuthRedirect(
     req: GoogleRequest,
     res: Response,
-  ): Promise<SuccessResponseType<UserResponseDto & TokenResponseDto>> {
+  ): Promise<SuccessResponseType<AuthResponseDto & TokenResponseDto>> {
     const { email } = req.user;
     const user = await this.prismaService.user.findUnique({
       where: { email },
     });
     if (user) {
+      if (!user.isActive) throw new BadRequestException('User is not active');
       const permissions = await this.permissionService
         .getPermissionsByUserId(user.id)
         .then((res) => res.data);
@@ -326,7 +324,7 @@ export class AuthService {
       res.redirect(
         this.configService.get<string>('CLIENT_REDIRECT_URL') as string,
       );
-      const result: SuccessResponseType<UserResponseDto & TokenResponseDto> = {
+      const result: SuccessResponseType<AuthResponseDto & TokenResponseDto> = {
         message: 'Success',
         data: {
           id: user.id,
@@ -340,7 +338,7 @@ export class AuthService {
     const randomPassword = randomBytes(12).toString('hex');
     const hashed = await this.hashPassword(randomPassword);
     const newUser = await this.prismaService.user.create({
-      data: { email, passwordHash: hashed },
+      data: { email, passwordHash: hashed, isActive: true },
     });
     const accessToken = this.generateAccessToken({
       sub: newUser.id,
@@ -362,7 +360,7 @@ export class AuthService {
     res.redirect(
       this.configService.get<string>('CLIENT_REDIRECT_URL') as string,
     );
-    const result: SuccessResponseType<UserResponseDto & TokenResponseDto> = {
+    const result: SuccessResponseType<AuthResponseDto & TokenResponseDto> = {
       message: 'Success',
       data: {
         id: newUser.id,

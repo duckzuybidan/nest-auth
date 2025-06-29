@@ -7,6 +7,7 @@ import { RoleModule } from './role/role.module';
 import { PermissionModule } from './permission/permission.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './redis/redis.module';
+import { UserModule } from './user/user.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -19,6 +20,7 @@ import { RedisModule } from './redis/redis.module';
     PermissionModule,
     PrismaModule,
     RedisModule,
+    UserModule,
   ],
   providers: [TaskService],
 })

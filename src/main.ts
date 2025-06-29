@@ -24,7 +24,7 @@ async function bootstrap() {
     defaultVersion: '1',
   });
 
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
+  const document = SwaggerModule.createDocument(app, swaggerConfig.build());
   SwaggerModule.setup(docsPath, app, document, swaggerOptions);
 
   app.useGlobalPipes(

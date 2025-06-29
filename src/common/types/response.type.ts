@@ -1,6 +1,7 @@
-export type SuccessResponseType<T = any> = {
+export type SuccessResponseType<T1 = any, T2 = any> = {
   message: string;
-  data: T;
+  data: T1;
+  meta?: T2;
 };
 
 export type ErrorResponseType = {

@@ -7,7 +7,7 @@ import { ConfigService } from '@nestjs/config';
 import { Request } from 'express';
 import { ErrorResponseType } from 'src/common/types';
 import { ACCESS_TOKEN, USER } from 'src/common/constants';
-import { UserResponseDto } from '../dto';
+import { AuthResponseDto } from '../dto';
 import { RedisService } from 'src/redis/redis.service';
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {

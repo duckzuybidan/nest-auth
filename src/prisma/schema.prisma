@@ -12,6 +12,7 @@ model User {
   id            String         @id @default(auto()) @map("_id") @db.ObjectId
   email         String         @unique
   passwordHash  String
+  isActive      Boolean        @default(false)
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   refreshTokens RefreshToken[]
@@ -27,6 +28,7 @@ model RefreshToken {
   userAgent String?
   expiresAt DateTime
   createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   revokedAt DateTime?
 
   @@index([tokenHash, expiresAt, revokedAt])
@@ -35,12 +37,16 @@ model RefreshToken {
 model Role {
   id   String   @id @default(auto()) @map("_id") @db.ObjectId
   name String   @unique
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
   users UserRole[]
   permissions RolePermission[]
 }
 
 model UserRole {
   id     String @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
   user   User   @relation(fields: [userId], references: [id])
   userId String @db.ObjectId
   role   Role   @relation(fields: [roleId], references: [id])
@@ -52,6 +58,8 @@ model Permission {
   action PermissionAction   
   resource PermissionResource
   description String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
   roles RolePermission[]
 
   @@unique([action, resource])
@@ -59,6 +67,8 @@ model Permission {
 
 model RolePermission {
   id       String @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
   role     Role   @relation(fields: [roleId], references: [id])
   roleId   String @db.ObjectId
   permission Permission @relation(fields: [permissionId], references: [id])

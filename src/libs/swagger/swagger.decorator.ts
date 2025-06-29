@@ -8,12 +8,13 @@ import {
   UnauthorizedResponse,
   InternalServerErrorResponse,
 } from './responses';
-import { SwaggerOptionsType } from './swagger.type';
+import { SwaggerType } from './swagger.type';
 import { ACCESS_TOKEN } from 'src/common/constants';
 
-export function Swagger(options: SwaggerOptionsType): MethodDecorator {
+export function Swagger(options: SwaggerType): MethodDecorator {
   const {
     response,
+    metaResponse,
     summary,
     description,
     withAuth,
@@ -34,7 +35,8 @@ export function Swagger(options: SwaggerOptionsType): MethodDecorator {
   if (response || successCode) {
     decorators.push(
       SuccessResponse({
-        dto: response,
+        dataDto: response,
+        metaDto: metaResponse,
         status: successCode,
         example: successExample,
       }),

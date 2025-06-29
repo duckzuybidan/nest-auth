@@ -15,6 +15,7 @@ async function main() {
     data: {
       email,
       passwordHash,
+      isActive: true,
     },
   });
 

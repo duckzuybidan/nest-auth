@@ -7,41 +7,50 @@ import {
 } from '@nestjs/swagger';
 import { SuccessResponseType } from 'src/common/types';
 
-export function SuccessResponse<T = any>(params: {
+export function SuccessResponse<T1 = any, T2 = any>(params: {
   status?: HttpStatus;
-  dto?: Type<T> | Type<T>[]; // now allows array
-  example?: SuccessResponseType<T>;
+  dataDto?: Type<T1> | Type<T1>[];
+  metaDto?: Type<T2>;
+  example?: SuccessResponseType<T1, T2>;
 }): MethodDecorator {
-  const { status = HttpStatus.OK, dto, example } = params;
+  const { status = HttpStatus.OK, dataDto, metaDto, example } = params;
 
-  const isArray = Array.isArray(dto);
-  const targetDto = isArray
-    ? (dto as Type<T>[])[0]
-    : (dto as Type<T> | undefined);
+  const isArray = Array.isArray(dataDto);
+  const targetDataDto = isArray
+    ? (dataDto as Type<T1>[])[0]
+    : (dataDto as Type<T1> | undefined);
+
+  const properties: Record<string, any> = {
+    message: {
+      type: 'string',
+      example: example?.message || 'Success',
+    },
+    data: targetDataDto
+      ? isArray
+        ? {
+            type: 'array',
+            items: { $ref: getSchemaPath(targetDataDto) },
+            example: example?.data,
+          }
+        : {
+            $ref: getSchemaPath(targetDataDto),
+            example: example?.data,
+          }
+      : {
+          type: 'object',
+          example: example?.data || {},
+        },
+  };
+  if (metaDto) {
+    properties.meta = {
+      $ref: getSchemaPath(metaDto),
+      example: example?.meta,
+    };
+  }
 
   const schema = {
     type: 'object',
-    properties: {
-      message: {
-        type: 'string',
-        example: example?.message || 'Success',
-      },
-      data: targetDto
-        ? isArray
-          ? {
-              type: 'array',
-              items: { $ref: getSchemaPath(targetDto) },
-              example: example?.data,
-            }
-          : {
-              $ref: getSchemaPath(targetDto),
-              example: example?.data,
-            }
-        : {
-            type: 'object',
-            example: example?.data || {},
-          },
-    },
+    properties,
     required: ['message', 'data'],
   };
 
@@ -52,8 +61,11 @@ export function SuccessResponse<T = any>(params: {
 
   const decorators: MethodDecorator[] = [responseDecorator];
 
-  if (targetDto) {
-    decorators.push(ApiExtraModels(targetDto));
+  if (targetDataDto) {
+    decorators.push(ApiExtraModels(targetDataDto));
+  }
+  if (metaDto) {
+    decorators.push(ApiExtraModels(metaDto));
   }
 
   return applyDecorators(...decorators);

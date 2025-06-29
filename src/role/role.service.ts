@@ -4,15 +4,35 @@ import { RoleResponseDto } from './dto/role-response.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { PermissionAction, PermissionResource } from 'src/common/constants';
 import { CreateRoleBodyDto, UpdateRoleBodyDto } from './dto';
-import { PermissionResponseDto } from 'src/permission/dto';
-import { Prisma } from 'generated/prisma';
+import { Prisma, Role } from 'generated/prisma';
+import { RolePaginationRequestDto } from './dto/role-pagination.dto';
+import { checkArrayContain } from 'src/common/utils';
 
 @Injectable()
 export class RoleService {
   constructor(private readonly prismaService: PrismaService) {}
-  async getAllRoles(): Promise<SuccessResponseType<RoleResponseDto[]>> {
-    const roles = await this.prismaService.role.findMany({
-      include: { permissions: { include: { permission: true } } },
+  async getAllRoles(
+    query: RolePaginationRequestDto,
+  ): Promise<SuccessResponseType<RoleResponseDto[]>> {
+    const { permissionIds } = query;
+    if (permissionIds && permissionIds.length > 0) {
+      for (const id of permissionIds) {
+        this.prismaService.validateObjectId(id, 'permissionId');
+      }
+    }
+    const candidateRoles = await this.prismaService.role.findMany({
+      include: {
+        permissions: {
+          include: { permission: true },
+        },
+      },
+    });
+    const roles = candidateRoles.filter((r) => {
+      if (!permissionIds) return true;
+      return checkArrayContain<string>(
+        r.permissions.map((p) => p.id),
+        permissionIds,
+      );
     });
     const result: SuccessResponseType<RoleResponseDto[]> = {
       message: 'Success',
@@ -20,11 +40,14 @@ export class RoleService {
         return {
           id: r.id,
           name: r.name,
-          permissions: r.permissions.map((rp) => ({
-            action: rp.permission.action as PermissionAction,
-            resource: rp.permission.resource as PermissionResource,
-            description: rp.permission.description,
-          })),
+          permissions: r.permissions.map(
+            (rp) =>
+              ({
+                id: rp.id,
+                action: rp.permission.action as PermissionAction,
+                resource: rp.permission.resource as PermissionResource,
+              }) satisfies RoleResponseDto['permissions'][0],
+          ),
         } satisfies RoleResponseDto;
       }),
     };
@@ -44,9 +67,9 @@ export class RoleService {
         id: role.id,
         name: role.name,
         permissions: role.permissions.map((rp) => ({
+          id: rp.id,
           action: rp.permission.action as PermissionAction,
           resource: rp.permission.resource as PermissionResource,
-          description: rp.permission.description,
         })),
       } satisfies RoleResponseDto,
     };
@@ -60,6 +83,27 @@ export class RoleService {
       for (const id of payload.permissionIds) {
         this.prismaService.validateObjectId(id, 'permissionId');
       }
+    }
+    let permissions: RoleResponseDto['permissions'] = [];
+    if (payload.permissionIds && payload.permissionIds.length > 0) {
+      const foundPermissions = await this.prismaService.permission.findMany({
+        where: {
+          id: { in: payload.permissionIds },
+        },
+      });
+
+      if (foundPermissions.length !== payload.permissionIds.length) {
+        throw new BadRequestException('Some permissions not found');
+      }
+
+      permissions = foundPermissions.map(
+        (p) =>
+          ({
+            id: p.id,
+            action: p.action as PermissionAction,
+            resource: p.resource as PermissionResource,
+          }) satisfies RoleResponseDto['permissions'][0],
+      );
     }
     const result = await this.prismaService.$transaction(async (tx) => {
       const role = await tx.role
@@ -81,22 +125,7 @@ export class RoleService {
           })),
         });
       }
-      const permissions = await tx.rolePermission
-        .findMany({
-          where: { roleId: role.id },
-          include: { permission: true },
-        })
-        .then((rps) =>
-          rps.map(
-            (rp) =>
-              ({
-                action: rp.permission.action as PermissionAction,
-                resource: rp.permission.resource as PermissionResource,
-                description: rp.permission.description,
-              }) satisfies PermissionResponseDto,
-          ),
-        );
-      const res: SuccessResponseType<RoleResponseDto> = {
+      const response: SuccessResponseType<RoleResponseDto> = {
         message: 'Success',
         data: {
           id: role.id,
@@ -104,7 +133,7 @@ export class RoleService {
           permissions,
         } satisfies RoleResponseDto,
       };
-      return res;
+      return response;
     });
     return result;
   }
@@ -115,70 +144,81 @@ export class RoleService {
         this.prismaService.validateObjectId(id, 'permissionId');
       }
     }
-    const result = await this.prismaService.$transaction(async (tx) => {
-      const role = await tx.role
-        .update({
-          where: { id },
-          data: { name: payload.name },
-        })
-        .catch((error) => {
-          if (error instanceof Prisma.PrismaClientKnownRequestError) {
-            if (error.code === 'P2002') {
-              throw new BadRequestException('Role already exists');
-            } else if (error.code === 'P2025') {
-              throw new BadRequestException('Role not found');
-            }
-          }
-          throw error;
-        });
-      if (payload.permissionIds && payload.permissionIds.length > 0) {
-        await tx.rolePermission.deleteMany({ where: { roleId: role.id } });
-        await tx.rolePermission.createMany({
+    let permissions: RoleResponseDto['permissions'] = [];
+    if (payload.permissionIds && payload.permissionIds.length > 0) {
+      const foundPermissions = await this.prismaService.permission.findMany({
+        where: {
+          id: { in: payload.permissionIds },
+        },
+      });
+
+      if (foundPermissions.length !== payload.permissionIds.length) {
+        throw new BadRequestException('Some permissions not found');
+      }
+
+      permissions = foundPermissions.map(
+        (p) =>
+          ({
+            id: p.id,
+            action: p.action as PermissionAction,
+            resource: p.resource as PermissionResource,
+          }) satisfies RoleResponseDto['permissions'][0],
+      );
+    }
+    const queries = [
+      this.prismaService.role.update({
+        where: { id },
+        data: { name: payload.name },
+      }),
+      this.prismaService.rolePermission.deleteMany({
+        where: { roleId: id },
+      }),
+    ];
+
+    if (payload.permissionIds && payload.permissionIds.length > 0) {
+      queries.push(
+        this.prismaService.rolePermission.createMany({
           data: payload.permissionIds.map((p) => ({
-            roleId: role.id,
+            roleId: id,
             permissionId: p,
           })),
-        });
-      }
-      const permissions = await tx.rolePermission
-        .findMany({
-          where: { roleId: role.id },
-          include: { permission: true },
-        })
-        .then((rps) =>
-          rps.map(
-            (rp) =>
-              ({
-                action: rp.permission.action as PermissionAction,
-                resource: rp.permission.resource as PermissionResource,
-                description: rp.permission.description,
-              }) satisfies PermissionResponseDto,
-          ),
-        );
-      const res: SuccessResponseType<RoleResponseDto> = {
-        message: 'Success',
-        data: {
-          id: role.id,
-          name: role.name,
-          permissions,
-        } satisfies RoleResponseDto,
-      };
-      return res;
-    });
+        }),
+      );
+    }
+
+    const [role, _, __] = (await this.prismaService
+      .$transaction(queries)
+      .catch((error) => {
+        if (error instanceof Prisma.PrismaClientKnownRequestError) {
+          if (error.code === 'P2002') {
+            throw new BadRequestException('Role already exists');
+          } else if (error.code === 'P2025') {
+            throw new BadRequestException('Role not found');
+          }
+        }
+        throw error;
+      })) as [Role, Prisma.BatchPayload, Prisma.BatchPayload];
+    const result: SuccessResponseType<RoleResponseDto> = {
+      message: 'Success',
+      data: {
+        id,
+        name: role.name,
+        permissions,
+      } satisfies RoleResponseDto,
+    };
     return result;
   }
   async deleteRoleById(id: string): Promise<SuccessResponseType> {
     this.prismaService.validateObjectId(id, 'id');
     await this.prismaService
-      .$transaction(async (tx) => {
-        await tx.rolePermission.deleteMany({
+      .$transaction([
+        this.prismaService.rolePermission.deleteMany({
           where: { roleId: id },
-        });
-
-        await tx.role.delete({
+        }),
+        this.prismaService.role.delete({
           where: { id },
-        });
-      })
+        }),
+      ])
       .catch((error) => {
         if (
           error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -191,10 +231,9 @@ export class RoleService {
     return { message: 'Success', data: {} };
   }
 
-  async getRoleByUserId(
+  async getRolesByUserId(
     userId: string,
   ): Promise<SuccessResponseType<RoleResponseDto[]>> {
-    console.log(userId);
     const roles = await this.prismaService.userRole.findMany({
       where: { userId },
       include: {
@@ -207,11 +246,14 @@ export class RoleService {
         return {
           id: r.role.id,
           name: r.role.name,
-          permissions: r.role.permissions.map((rp) => ({
-            action: rp.permission.action as PermissionAction,
-            resource: rp.permission.resource as PermissionResource,
-            description: rp.permission.description,
-          })),
+          permissions: r.role.permissions.map(
+            (rp) =>
+              ({
+                id: rp.id,
+                action: rp.permission.action as PermissionAction,
+                resource: rp.permission.resource as PermissionResource,
+              }) satisfies RoleResponseDto['permissions'][0],
+          ),
         } satisfies RoleResponseDto;
       }),
     };

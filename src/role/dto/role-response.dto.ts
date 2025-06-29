@@ -1,7 +1,14 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { PermissionAction, PermissionResource } from 'src/common/constants';
-import { PermissionResponseDto } from 'src/permission/dto';
 
+class PermissionDto {
+  @ApiProperty({ example: '123' })
+  id: string;
+  @ApiProperty({ example: PermissionAction.READ })
+  action: PermissionAction;
+  @ApiProperty({ example: PermissionResource.ADMIN })
+  resource: PermissionResource;
+}
 export class RoleResponseDto {
   @ApiProperty({ example: '123' })
   id: string;
@@ -10,14 +17,7 @@ export class RoleResponseDto {
   name: string;
 
   @ApiProperty({
-    type: [PermissionResponseDto],
-    example: [
-      {
-        action: PermissionAction.READ,
-        resource: PermissionResource.ADMIN,
-        description: 'Read access to admin',
-      },
-    ],
+    type: [PermissionDto],
   })
-  permissions: PermissionResponseDto[];
+  permissions: PermissionDto[];
 }

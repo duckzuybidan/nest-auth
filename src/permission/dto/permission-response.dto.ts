@@ -2,6 +2,9 @@ import { ApiProperty } from '@nestjs/swagger';
 import { PermissionAction, PermissionResource } from 'src/common/constants';
 
 export class PermissionResponseDto {
+  @ApiProperty({ example: '123' })
+  id: string;
+
   @ApiProperty({
     enum: PermissionAction,
     example: PermissionAction.READ,

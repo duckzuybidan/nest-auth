@@ -28,13 +28,16 @@ export class AllExceptionsFilter implements ExceptionFilter {
       const exceptionResponse = exception.getResponse();
 
       if (typeof exceptionResponse === 'object') {
-        const res = exceptionResponse as ErrorResponseType;
-        errorResponse.message = res.message;
-        errorResponse.errorDetail = res.errorDetail;
+        const response = exceptionResponse as ErrorResponseType;
+        errorResponse.message = response.message;
+        errorResponse.errorDetail = response.errorDetail;
       } else if (typeof exceptionResponse === 'string') {
         errorResponse.message = exceptionResponse;
       }
-    } else if (exception instanceof Prisma.PrismaClientUnknownRequestError) {
+    } else if (
+      exception instanceof Prisma.PrismaClientUnknownRequestError ||
+      exception instanceof Prisma.PrismaClientValidationError
+    ) {
       status = HttpStatus.BAD_REQUEST;
       errorResponse.message = 'Database violation error';
     }
