@@ -11,14 +11,27 @@ import { AllExceptionsFilter } from './common/filters';
 import { ConfigService } from '@nestjs/config';
 import { ErrorResponseType } from './common/types';
 import cookieParser from 'cookie-parser';
-
+import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT') || 3000;
   const docsPath = configService.get<string>('DOCS_PATH') || 'api/docs';
+  // const queueUrl =
+  //     configService.get<string>('QUEUE_URL') || 'amqp://localhost:5672';
+  //   const queueName = configService.get<string>('QUEUE_NAME') || 'auth_queue';
 
+  //   app.connectMicroservice<MicroserviceOptions>({
+  //     transport: Transport.RMQ,
+  //     options: {
+  //       urls: [queueUrl],
+  //       queue: queueName,
+  //       queueOptions: {
+  //         durable: true,
+  //       },
+  //     },
+  //   });
   app.enableVersioning({
     type: VersioningType.URI,
     defaultVersion: '1',
@@ -51,6 +64,8 @@ async function bootstrap() {
   app.use(cookieParser());
 
   app.useGlobalFilters(new AllExceptionsFilter());
+
+  // await app.startAllMicroservices();
 
   await app.listen(port);
 }
