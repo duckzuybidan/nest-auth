@@ -8,6 +8,7 @@ import { PermissionModule } from './permission/permission.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './redis/redis.module';
 import { UserModule } from './user/user.module';
+import { EmailPublisherModule } from './email-publisher/email-publisher.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -21,6 +22,7 @@ import { UserModule } from './user/user.module';
     PrismaModule,
     RedisModule,
     UserModule,
+    EmailPublisherModule,
   ],
   providers: [TaskService],
 })

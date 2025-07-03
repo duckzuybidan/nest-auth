@@ -1,22 +1,14 @@
 import { PassportStrategy } from '@nestjs/passport';
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Strategy } from 'passport-jwt';
-import { PrismaService } from 'src/prisma/prisma.service';
-import { CacheUserType, JwtPayloadType } from '../types';
+import { JwtPayloadType } from '../types';
 import { ConfigService } from '@nestjs/config';
 import { Request } from 'express';
-import { ErrorResponseType } from 'src/common/types';
-import { ACCESS_TOKEN, USER } from 'src/common/constants';
-import { AuthResponseDto } from '../dto';
-import { RedisService } from 'src/redis/redis.service';
+import { ACCESS_TOKEN } from 'src/common/constants';
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   private readonly logger = new Logger(JwtStrategy.name);
-  constructor(
-    configService: ConfigService,
-    private readonly prismaService: PrismaService,
-    private readonly redisService: RedisService,
-  ) {
+  constructor(configService: ConfigService) {
     super({
       jwtFromRequest: (req: Request) => {
         if (!req || !req.cookies) return null;

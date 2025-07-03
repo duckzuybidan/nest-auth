@@ -9,7 +9,14 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
-import { SignUpDto, AuthResponseDto, SignInDto, TokenResponseDto } from './dto';
+import {
+  SignUpDto,
+  AuthResponseDto,
+  SignInDto,
+  TokenResponseDto,
+  ResendOtpBodyDto,
+  VerifyUserBodyDto,
+} from './dto';
 import { AuthService } from './auth.service';
 import { Swagger, swaggerConfig } from 'src/libs/swagger';
 import {
@@ -22,6 +29,7 @@ import { mergeClasses } from 'src/common/utils';
 import { REFRESH_TOKEN } from 'src/common/constants';
 import { JwtAuthGuard } from './guards';
 import { GoogleAuthGuard } from './guards/google.guard';
+import { Payload } from '@nestjs/microservices';
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {
@@ -126,5 +134,33 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<SuccessResponseType<AuthResponseDto & TokenResponseDto>> {
     return this.authService.googleAuthRedirect(req, res);
+  }
+
+  @Post('resend-otp')
+  @Swagger({
+    summary: 'Resend OTP',
+    description: 'Resend OTP',
+    successExample: { message: 'Success', data: {} },
+    successCode: HttpStatus.OK,
+    errorCodes: [HttpStatus.BAD_REQUEST],
+  })
+  async resendOtp(
+    @Body() payload: ResendOtpBodyDto,
+  ): Promise<SuccessResponseType<{}>> {
+    return this.authService.resendOtp(payload);
+  }
+
+  @Post('verify-user')
+  @Swagger({
+    summary: 'Verify user',
+    description: 'Verify user',
+    successExample: { message: 'Success', data: {} },
+    successCode: HttpStatus.OK,
+    errorCodes: [HttpStatus.BAD_REQUEST],
+  })
+  async verifyUser(
+    @Body() payload: VerifyUserBodyDto,
+  ): Promise<SuccessResponseType<{}>> {
+    return this.authService.verifyUser(payload);
   }
 }

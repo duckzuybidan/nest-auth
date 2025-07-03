@@ -4,29 +4,42 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import {
   AuthenticatedRequest,
-  ErrorResponseType,
   GoogleRequest,
   SuccessResponseType,
 } from 'src/common/types';
-import { SignUpDto, AuthResponseDto, TokenResponseDto, SignInDto } from './dto';
+import {
+  SignUpDto,
+  AuthResponseDto,
+  TokenResponseDto,
+  SignInDto,
+  ResendOtpBodyDto,
+  VerifyUserBodyDto,
+} from './dto';
 import { randomBytes, createHash } from 'crypto';
 import { ConfigService } from '@nestjs/config';
 import ms from 'ms';
 import { Request, Response } from 'express';
-import { CacheUserType, JwtPayloadType } from './types';
-import { ACCESS_TOKEN, REFRESH_TOKEN, USER } from 'src/common/constants';
-import { RedisService } from 'src/redis/redis.service';
+import {
+  ACCESS_TOKEN,
+  OTP,
+  OTP_COOLDOWN,
+  REFRESH_TOKEN,
+} from 'src/common/constants';
 import { PermissionService } from 'src/permission/permission.service';
+import { JwtPayloadType } from './types';
+import { EmailPublisherService } from 'src/email-publisher/email-publisher.service';
+import { RedisService } from 'src/redis/redis.service';
 @Injectable()
 export class AuthService {
-  private readonly logger = new Logger(AuthService.name);
   constructor(
     private readonly jwtService: JwtService,
     private readonly prismaService: PrismaService,
     private readonly configService: ConfigService,
-    private readonly redisService: RedisService,
     private readonly permissionService: PermissionService,
+    private readonly emailPublisherService: EmailPublisherService,
+    private readonly redisService: RedisService,
   ) {}
+
   generateAccessToken(payload: JwtPayloadType): string {
     return this.jwtService.sign(payload);
   }
@@ -98,6 +111,19 @@ export class AuthService {
       sameSite: 'strict',
     });
   }
+
+  sendVerificationEmail(payload: { to: string }) {
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    void this.redisService.set(
+      `OTP:${payload.to}`,
+      JSON.stringify({ otp }),
+      300,
+    );
+    this.emailPublisherService.sendVerificationEmail({
+      to: payload.to,
+      otp,
+    });
+  }
   async signUp(
     payload: SignUpDto,
   ): Promise<SuccessResponseType<AuthResponseDto>> {
@@ -116,6 +142,7 @@ export class AuthService {
       data: { email, passwordHash: hashed, isVerified: false, isActive: true },
     });
 
+    this.sendVerificationEmail({ to: email });
     const result: SuccessResponseType<AuthResponseDto> = {
       message: 'Success',
       data: { id: user.id, email: user.email },
@@ -181,31 +208,18 @@ export class AuthService {
   async me(
     req: AuthenticatedRequest,
   ): Promise<SuccessResponseType<AuthResponseDto>> {
-    let user: CacheUserType | null = null;
-    const cacheKey = `${USER}:${req.user.sub}`;
-    const cachedUser = await this.redisService.get(cacheKey);
+    const user = await this.prismaService.user.findUnique({
+      where: { id: req.user.sub },
+      select: { id: true, email: true },
+    });
+    if (!user) throw new BadRequestException('User not found');
 
-    if (cachedUser) {
-      user = JSON.parse(cachedUser);
-    } else {
-      user = await this.prismaService.user.findUnique({
-        where: { id: req.user.sub },
-        select: { id: true, email: true },
-      });
-
-      if (user) {
-        void this.redisService
-          .set(cacheKey, JSON.stringify(user))
-          .catch((error) => this.logger.error('Redis set error', error));
-      }
-    }
-
-    if (!user) {
-      throw new BadRequestException('User not found');
-    }
     const result: SuccessResponseType<AuthResponseDto> = {
       message: 'Success',
-      data: user,
+      data: {
+        id: user.id,
+        email: user.email,
+      },
     };
     return result;
   }
@@ -281,10 +295,6 @@ export class AuthService {
       where: { tokenHash: this.getHashedRefreshToken(refreshToken) },
       data: { revokedAt: new Date() },
     });
-
-    void this.redisService
-      .del(`${USER}:${userId}`)
-      .catch((error) => this.logger.error('Redis del error', error));
 
     this.clearAccessTokenCookie(res);
     this.clearRefreshTokenCookie(res);
@@ -370,5 +380,41 @@ export class AuthService {
       },
     };
     return result;
+  }
+
+  async resendOtp(payload: ResendOtpBodyDto): Promise<SuccessResponseType<{}>> {
+    const cooldown = await this.redisService.get(
+      `${OTP_COOLDOWN}:${payload.email}`,
+    );
+    if (cooldown) {
+      const ttl = await this.redisService.ttl(
+        `${OTP_COOLDOWN}:${payload.email}`,
+      );
+      throw new BadRequestException(
+        `Please wait ${ttl} seconds before requesting another OTP`,
+      );
+    }
+    void this.redisService.set(`OTP:${payload.email}`, '1', 60);
+    this.sendVerificationEmail({ to: payload.email });
+    return { message: 'Success', data: {} };
+  }
+
+  async verifyUser(
+    payload: VerifyUserBodyDto,
+  ): Promise<SuccessResponseType<{}>> {
+    const otp = await this.redisService.get(`${OTP}:${payload.email}`);
+    if (!otp) {
+      throw new BadRequestException('Invalid OTP');
+    }
+    const otpJson = JSON.parse(otp);
+    if (otpJson.otp !== payload.otp) {
+      throw new BadRequestException('Invalid OTP');
+    }
+    await this.redisService.del(`${OTP}:${payload.email}`);
+    await this.prismaService.user.update({
+      where: { email: payload.email },
+      data: { isVerified: true },
+    });
+    return { message: 'Success', data: {} };
   }
 }

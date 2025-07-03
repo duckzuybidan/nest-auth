@@ -6,6 +6,8 @@ import { ConfigService } from '@nestjs/config';
 import { GoogleStrategy, JwtStrategy } from './strategies';
 import { PermissionModule } from 'src/permission/permission.module';
 import { JwtAuthGuard } from './guards';
+import { GoogleAuthGuard } from './guards/google.guard';
+import { EmailPublisherModule } from 'src/email-publisher/email-publisher.module';
 
 @Module({
   imports: [
@@ -19,8 +21,15 @@ import { JwtAuthGuard } from './guards';
       }),
     }),
     PermissionModule,
+    EmailPublisherModule,
   ],
-  providers: [AuthService, JwtStrategy, GoogleStrategy, JwtAuthGuard],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    GoogleStrategy,
+    JwtAuthGuard,
+    GoogleAuthGuard,
+  ],
   controllers: [AuthController],
   exports: [JwtAuthGuard, AuthService],
 })

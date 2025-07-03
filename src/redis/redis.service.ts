@@ -10,7 +10,6 @@ import { ConfigService } from '@nestjs/config';
 @Injectable()
 export class RedisService implements OnModuleInit, OnModuleDestroy {
   private client: RedisClientType;
-  private subscriber: RedisClientType;
   private readonly logger = new Logger(RedisService.name);
   constructor(private readonly configService: ConfigService) {}
 
@@ -24,17 +23,11 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       },
     });
 
-    this.subscriber = this.client.duplicate();
-
     this.client.on('error', (err) =>
       this.logger.error('Redis Client Error', err),
     );
-    this.subscriber.on('error', (err) =>
-      this.logger.error('Redis Subscriber Error', err),
-    );
 
     await this.client.connect();
-    await this.subscriber.connect();
   }
 
   async get(key: string) {
@@ -52,16 +45,11 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   async del(key: string) {
     await this.client.del(key);
   }
-
-  async publish(channel: string, message: string) {
-    await this.client.publish(channel, message);
-  }
-
-  async subscribe(channel: string, callback: (message: string) => void) {
-    await this.subscriber.subscribe(channel, callback);
+  async ttl(key: string): Promise<number> {
+    return await this.client.ttl(key);
   }
 
   async onModuleDestroy() {
-    await Promise.all([this.subscriber?.quit(), this.client?.quit()]);
+    await Promise.all([this.client?.quit()]);
   }
 }
