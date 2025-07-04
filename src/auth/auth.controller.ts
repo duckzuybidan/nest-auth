@@ -137,6 +137,7 @@ export class AuthController {
   }
 
   @Post('resend-otp')
+  @HttpCode(HttpStatus.OK)
   @Swagger({
     summary: 'Resend OTP',
     description: 'Resend OTP',
@@ -151,6 +152,7 @@ export class AuthController {
   }
 
   @Post('verify-user')
+  @HttpCode(HttpStatus.OK)
   @Swagger({
     summary: 'Verify user',
     description: 'Verify user',

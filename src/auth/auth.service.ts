@@ -394,7 +394,7 @@ export class AuthService {
         `Please wait ${ttl} seconds before requesting another OTP`,
       );
     }
-    void this.redisService.set(`OTP:${payload.email}`, '1', 60);
+    void this.redisService.set(`${OTP_COOLDOWN}:${payload.email}`, '1', 60);
     this.sendVerificationEmail({ to: payload.email });
     return { message: 'Success', data: {} };
   }
