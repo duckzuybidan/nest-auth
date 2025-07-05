@@ -151,7 +151,7 @@ export class AuthController {
     return this.authService.resendOtp(payload);
   }
 
-  @Post('verify-users')
+  @Post('verify-user')
   @HttpCode(HttpStatus.OK)
   @Swagger({
     summary: 'Verify user',
