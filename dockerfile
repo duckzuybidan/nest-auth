@@ -21,7 +21,7 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/generated /app/generated
 COPY package*.json ./
 
-EXPOSE 3000
+EXPOSE 3001
 
 CMD ["node", "dist/main"]
 
