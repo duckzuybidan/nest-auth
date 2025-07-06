@@ -58,4 +58,3 @@ jobs:
           push: true
           tags: |
             duckzuybidan/nest-auth:latest
-            duckzuybidan/nest-auth:${{ github.sha }}
