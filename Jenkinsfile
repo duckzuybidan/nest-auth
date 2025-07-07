@@ -1,9 +1,5 @@
 pipeline {
-    agent {
-        docker {
-            image 'node:20'
-        }
-    }
+    agent any
 
     environment {
         DOCKERHUB_USERNAME = credentials('dockerhub-username')
