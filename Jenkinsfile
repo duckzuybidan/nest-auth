@@ -38,17 +38,4 @@ pipeline {
             }
         }
     }
-
-    post {
-        always {
-            echo 'Cleaning up...'
-            cleanWs()
-        }
-        failure {
-            echo 'Build failed!'
-        }
-        success {
-            echo 'Build succeeded!'
-        }
-    }
 }
