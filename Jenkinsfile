@@ -1,5 +1,10 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'node:20'
+            args '-v /var/run/docker.sock:/var/run/docker.sock'
+        }
+    }
 
     environment {
         DOCKERHUB_USERNAME = credentials('dockerhub-username')
@@ -16,21 +21,17 @@ pipeline {
         stage('Install & Build') {
             steps {
                 sh 'npm ci'
-                sh 'npx prisma generate --schema=src/prisma/schema.prisma'
-                sh 'npm run build --if-present'
+                sh 'npm run build'
             }
         }
 
         stage('Docker Build & Push') {
-            when {
-                branch 'master'
-            }
             steps {
-                sh '''
-                    echo "$DOCKERHUB_PASSWORD" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+                sh """
+                    echo $DOCKERHUB_PASSWORD | docker login -u $DOCKERHUB_USERNAME --password-stdin
                     docker build -t duckzuybidan/nest-auth:latest .
                     docker push duckzuybidan/nest-auth:latest
-                '''
+                """
             }
         }
     }
