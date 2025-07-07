@@ -7,9 +7,16 @@ pipeline {
     }
 
     stages {
+        stage('Clean Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+
         stage('Checkout') {
             steps {
                 checkout scm
+                sh 'ls -la'
             }
         }
 
@@ -23,12 +30,27 @@ pipeline {
 
         stage('Docker Build & Push') {
             steps {
-                sh '''
-                    echo $DOCKERHUB_PASSWORD | docker login -u $DOCKERHUB_USERNAME --password-stdin
-                    docker build -t duckzuybidan/nest-auth:latest .
-                    docker push duckzuybidan/nest-auth:latest
-                '''
+                script {
+                    sh """
+                        echo "${DOCKERHUB_PASSWORD}" | docker login -u "${DOCKERHUB_USERNAME}" --password-stdin
+                        docker build -t duckzuybidan/nest-auth:latest .
+                        docker push duckzuybidan/nest-auth:latest
+                    """
+                }
             }
+        }
+    }
+
+    post {
+        always {
+            echo 'Cleaning up...'
+            cleanWs()
+        }
+        failure {
+            echo 'Build failed!'
+        }
+        success {
+            echo 'Build succeeded!'
         }
     }
 }
