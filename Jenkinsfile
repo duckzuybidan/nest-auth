@@ -16,6 +16,7 @@ pipeline {
         stage('Install & Build') {
             steps {
                 sh 'npm ci'
+                sh 'npx prisma generate --schema=src/prisma/schema.prisma'
                 sh 'npm run build'
             }
         }
