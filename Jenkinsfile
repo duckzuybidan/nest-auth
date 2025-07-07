@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         DOCKERHUB_USERNAME = credentials('dockerhub-username')
-        DOCKERHUB_TOKEN = credentials('dockerhub-token')
+        DOCKERHUB_PASSWORD = credentials('dockerhub-password')
     }
 
     stages {
@@ -16,6 +16,7 @@ pipeline {
         stage('Install & Build') {
             steps {
                 sh 'npm ci'
+                sh 'npx prisma generate --schema=src/prisma/schema.prisma'
                 sh 'npm run build'
             }
         }
@@ -23,9 +24,9 @@ pipeline {
         stage('Docker Build & Push') {
             steps {
                 sh '''
-                  echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
-                  docker build -t duckzuybidan/nest-auth:latest .
-                  docker push duckzuybidan/nest-auth:latest
+                    echo $DOCKERHUB_PASSWORD | docker login -u $DOCKERHUB_USERNAME --password-stdin
+                    docker build -t duckzuybidan/nest-auth:latest .
+                    docker push duckzuybidan/nest-auth:latest
                 '''
             }
         }
