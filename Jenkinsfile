@@ -23,14 +23,11 @@ pipeline {
 
         stage('Docker Build & Push') {
             steps {
-                sh '''
-                echo "DEBUG - Username: $DOCKERHUB_USERNAME"
-                echo "DEBUG - Password: $DOCKERHUB_PASSWORD"
-
-                echo "$DOCKERHUB_PASSWORD" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
-                docker build -t duckzuybidan/nest-auth:latest .
-                docker push duckzuybidan/nest-auth:latest
-                '''
+                sh """
+                    echo $DOCKERHUB_PASSWORD | docker login -u $DOCKERHUB_USERNAME --password-stdin
+                    docker build -t duckzuybidan/nest-auth:latest .
+                    docker push duckzuybidan/nest-auth:latest
+                """
             }
         }
     }
