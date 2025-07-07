@@ -25,11 +25,11 @@ pipeline {
         stage('Docker Build & Push') {
             steps {
                 script {
-                    sh """
+                    sh '''
                         echo "${DOCKERHUB_PASSWORD}" | docker login -u "${DOCKERHUB_USERNAME}" --password-stdin
                         docker build -t duckzuybidan/nest-auth:latest .
                         docker push duckzuybidan/nest-auth:latest
-                    """
+                    '''
                 }
             }
         }
