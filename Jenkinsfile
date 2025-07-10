@@ -47,8 +47,11 @@ pipeline {
         }
 
         stage('Security Scan') {
+            environment {
+                TRIVY_DB_REPOSITORY = 'ghcr.io/aquasecurity/trivy-db'
+            }
             steps {
-                echo '🔎 Running Trivy vulnerability scan...'
+                echo '🔎 Running Trivy vulnerability scan via GHCR...'
                 sh '''
                     trivy image --exit-code 1 --severity HIGH,CRITICAL duckzuybidan/nest-auth:latest
                 '''
