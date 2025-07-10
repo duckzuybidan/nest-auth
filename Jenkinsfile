@@ -15,38 +15,54 @@ pipeline {
             }
         }
 
-        // stage('Docker Build & Push') {
+        // stage('SonarQube Analysis') {
         //     steps {
-        //         script {
+        //         withSonarQubeEnv('SonarQube') {
         //             sh '''
-        //                 echo "${DOCKERHUB_PASSWORD}" | docker login -u "${DOCKERHUB_USERNAME}" --password-stdin
-        //                 docker build -t duckzuybidan/nest-auth:latest .
-        //                 docker push duckzuybidan/nest-auth:latest
+        //                 sonar-scanner \
+        //                   -Dsonar.projectKey=nest-auth \
+        //                   -Dsonar.sources=. \
+        //                   -Dsonar.host.url=http://192.168.2.3:9000 \
+        //                   -Dsonar.login=${SONAR_TOKEN}
         //             '''
         //         }
         //     }
         // }
 
-        stage('SonarQube Analysis') {
+        // stage('SonarQube Quality Gate') {
+        //     steps {
+        //         timeout(time: 5, unit: 'MINUTES') {
+        //             waitForQualityGate abortPipeline: false
+        //         }
+        //     }
+        // }
+
+        stage('Docker Build') {
             steps {
-                withSonarQubeEnv('SonarQube') {
-                    sh '''
-                        sonar-scanner \
-                          -Dsonar.projectKey=nest-auth \
-                          -Dsonar.sources=. \
-                          -Dsonar.host.url=http://192.168.2.3:9000 \
-                          -Dsonar.login=${SONAR_TOKEN}
-                    '''
-                }
+                echo '🛠️ Building Docker image...'
+                sh '''
+                    docker build -t duckzuybidan/nest-auth:latest .
+                '''
             }
         }
 
-        stage('SonarQube Quality Gate') {
+        stage('Security Scan') {
             steps {
-                timeout(time: 5, unit: 'MINUTES') {
-                    waitForQualityGate abortPipeline: true
-                }
+                echo '🔎 Running Trivy vulnerability scan...'
+                sh '''
+                    trivy image --exit-code 1 --severity HIGH,CRITICAL duckzuybidan/nest-auth:latest
+                '''
             }
         }
+
+        // stage('Docker Push') {
+        //     steps {
+        //         echo '📦 Pushing image to Docker Hub...'
+        //         sh '''
+        //             echo "${DOCKERHUB_PASSWORD}" | docker login -u "${DOCKERHUB_USERNAME}" --password-stdin
+        //             docker push duckzuybidan/nest-auth:latest
+        //         '''
+        //     }
+        // }
     }
 }
