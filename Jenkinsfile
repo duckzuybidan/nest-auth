@@ -34,7 +34,7 @@ pipeline {
                         sonar-scanner \
                           -Dsonar.projectKey=nest-auth \
                           -Dsonar.sources=. \
-                          -Dsonar.host.url=http://localhost:9000 \
+                          -Dsonar.host.url=http://192.168.2.3:9000 \
                           -Dsonar.login=${SONAR_TOKEN}
                     '''
                 }
