@@ -283,7 +283,6 @@ export class AuthService {
     req: AuthenticatedRequest,
     res: Response,
   ): Promise<{ message: string; data: {} }> {
-    const user = req.user;
     const refreshToken = req.cookies[REFRESH_TOKEN];
 
     await this.prismaService.refreshToken.updateMany({
