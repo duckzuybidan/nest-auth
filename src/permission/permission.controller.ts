@@ -6,7 +6,6 @@ import {
   HttpStatus,
   Param,
   Patch,
-  Req,
   UseGuards,
 } from '@nestjs/common';
 import { PermissionService } from './permission.service';

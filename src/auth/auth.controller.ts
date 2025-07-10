@@ -29,7 +29,6 @@ import { mergeClasses } from 'src/common/utils';
 import { REFRESH_TOKEN } from 'src/common/constants';
 import { JwtAuthGuard } from './guards';
 import { GoogleAuthGuard } from './guards/google.guard';
-import { Payload } from '@nestjs/microservices';
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {
@@ -121,8 +120,6 @@ export class AuthController {
     summary: 'Google login',
     description: 'Google login',
   })
-  async googleAuth() {}
-
   @Get('google-auth/redirect')
   @UseGuards(GoogleAuthGuard)
   @Swagger({

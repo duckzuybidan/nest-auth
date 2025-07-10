@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
@@ -114,11 +114,7 @@ export class AuthService {
 
   sendVerificationEmail(payload: { to: string }) {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    void this.redisService.set(
-      `OTP:${payload.to}`,
-      JSON.stringify({ otp }),
-      300,
-    );
+    this.redisService.set(`OTP:${payload.to}`, JSON.stringify({ otp }), 300);
     this.emailPublisherService.sendVerificationEmail({
       to: payload.to,
       otp,
@@ -288,7 +284,6 @@ export class AuthService {
     res: Response,
   ): Promise<{ message: string; data: {} }> {
     const user = req.user;
-    const userId = user.sub;
     const refreshToken = req.cookies[REFRESH_TOKEN];
 
     await this.prismaService.refreshToken.updateMany({
@@ -394,7 +389,7 @@ export class AuthService {
         `Please wait ${ttl} seconds before requesting another OTP`,
       );
     }
-    void this.redisService.set(`${OTP_COOLDOWN}:${payload.email}`, '1', 60);
+    this.redisService.set(`${OTP_COOLDOWN}:${payload.email}`, '1', 60);
     this.sendVerificationEmail({ to: payload.email });
     return { message: 'Success', data: {} };
   }

@@ -1,6 +1,6 @@
 export function checkArrayContain<T>(A: T[], B: T[]): boolean {
-  for (let i = 0; i < B.length; i++) {
-    if (!A.includes(B[i])) {
+  for (const item of B) {
+    if (!A.includes(item)) {
       return false;
     }
   }
